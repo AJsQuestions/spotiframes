@@ -19,7 +19,7 @@ Turn your Spotify library into tidy DataFrames, analyze your listening habits, a
 
 ```bash
 # Clone the repo
-git clone https://github.com/AJsQuestions/spotifyframes.git
+git clone https://github.com/AJsQuestions/spotiframes.git
 cd spotifyframes
 
 # Install
