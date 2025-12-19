@@ -1,0 +1,31 @@
+[project]
+name = "spotifyframes"
+version = "0.2.0"
+description = "Pandas-first Spotify Web API interface: tidy DataFrames for library + market signals."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "pandas>=2.0",
+  "spotipy>=2.23",
+  "pyarrow>=14; platform_system != 'Windows'",
+  "tqdm>=4.66",
+  "requests>=2.31",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6", "black>=24.0"]
+notebook = ["jupyter>=1.0", "matplotlib>=3.8", "seaborn>=0.13", "plotly>=5.18"]
+all = ["spotifyframes[dev,notebook]"]
+
+[project.scripts]
+spotifyframes = "spotifyframes.cli:main"
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["spotifyframes*"]
+
+[tool.ruff]
+line-length = 100
