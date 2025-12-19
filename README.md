@@ -41,17 +41,17 @@ export SPOTIPY_REDIRECT_URI="http://127.0.0.1:8888/callback"
 
 ### Notebook 04: Playlist Generator
 
-Creates **194+ playlists** automatically:
+Creates **monthly and genre playlists** automatically:
 
 ```
-📅 Monthly Playlists (51):
-   AJFindsSep21, AJFindsOct21, ... AJFindsDec25
+📅 Monthly Playlists:
+   {Owner}{Prefix}{Mon}{Year} → e.g., AJFindsDec25
 
-🎸 Genre-Split Monthly (137):
-   HipHopFindsDec25, DanceFindsDec25, OtherFindsDec25
+🎸 Genre-Split Monthly:
+   {Genre}{Prefix}{Mon}{Year} → e.g., HipHopFindsDec25, DanceFindsDec25
 
-🎵 Master Genre Playlists (7):
-   AJamHip-Hop, AJamElectronic, AJamR&B/Soul, ...
+🎵 Master Genre Playlists:
+   {Owner}am{Genre} → e.g., AJamHip-Hop, AJamElectronic
 ```
 
 **Configuration:**
@@ -68,13 +68,18 @@ DRY_RUN = True  # Set False to create playlists
 Playlists update automatically every day at 2am UTC.
 
 ### Setup:
-1. Push to GitHub
-2. Run `python scripts/get_refresh_token.py` to get your refresh token
-3. Add these secrets to your repo (Settings → Secrets → Actions):
-   - `SPOTIPY_CLIENT_ID`
-   - `SPOTIPY_CLIENT_SECRET`
-   - `SPOTIPY_REDIRECT_URI`
-   - `SPOTIPY_REFRESH_TOKEN`
+1. Fork this repo or push to your own GitHub
+2. Run `python scripts/get_refresh_token.py` locally to get your refresh token
+3. Add these **secrets** to your repo (Settings → Secrets → Actions):
+
+| Secret | Required | Description |
+|--------|----------|-------------|
+| `SPOTIPY_CLIENT_ID` | ✅ | Your Spotify app client ID |
+| `SPOTIPY_CLIENT_SECRET` | ✅ | Your Spotify app client secret |
+| `SPOTIPY_REDIRECT_URI` | ✅ | `http://127.0.0.1:8888/callback` |
+| `SPOTIPY_REFRESH_TOKEN` | ✅ | Get via `get_refresh_token.py` |
+| `PLAYLIST_OWNER_NAME` | ❌ | Your name for playlists (default: "AJ") |
+| `PLAYLIST_PREFIX` | ❌ | Prefix like "Finds" (default: "Finds") |
 
 ### Manual trigger:
 Actions → Daily Spotify Playlist Update → Run workflow

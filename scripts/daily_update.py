@@ -30,8 +30,9 @@ sys.path.insert(0, str(PROJECT_ROOT))
 # CONFIGURATION - Edit these!
 # ============================================================================
 
-OWNER_NAME = "AJ"
-PREFIX = "Finds"
+# Configurable via environment variables or edit here
+OWNER_NAME = os.environ.get("PLAYLIST_OWNER_NAME", "AJ")
+PREFIX = os.environ.get("PLAYLIST_PREFIX", "Finds")
 
 # Templates
 MONTHLY_NAME_TEMPLATE = "{owner}{prefix}{mon}{year}"
