@@ -1,4 +1,4 @@
-name: Daily Spotify Playlist Update
+name: AJsSpotim8 Daily Update
 
 on:
   # Run daily at 2am UTC

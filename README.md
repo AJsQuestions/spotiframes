@@ -1,6 +1,6 @@
-# 🎵 SpotifyFrames
+# 🎵 AJsSpotim8
 
-A **pandas-first** interface to Spotify Web API with **automated playlist management**.
+Your **personal Spotify analytics platform** with **automated playlist management**.
 
 Turn your Spotify library into tidy DataFrames, analyze your listening habits, and automatically organize your music into smart playlists.
 
@@ -13,6 +13,7 @@ Turn your Spotify library into tidy DataFrames, analyze your listening habits, a
 - 🤖 **Daily Automation** - GitHub Actions updates playlists automatically
 - 💾 **Local Cache** - Parquet files for fast offline access
 - 🔄 **No Duplicates** - Smart deduplication on every run
+- 🎯 **Interactive Dashboard** - Beautiful web UI for analysis
 
 ## 🚀 Quick Start
 
@@ -86,7 +87,7 @@ Actions → Daily Spotify Playlist Update → Run workflow
 
 ## 📊 Dashboard
 
-A Dash web app for interactive analysis:
+A beautiful Dash web app for interactive analysis:
 
 ```bash
 cd dashboard
@@ -95,11 +96,12 @@ python app.py
 # Open http://127.0.0.1:8050
 ```
 
-Features:
+**Features:**
 - Library overview with stats
 - Artist and genre analysis
 - Playlist clustering
 - Similar playlist discovery
+- Hidden gems finder
 
 ## 🔧 Python API
 
@@ -145,7 +147,7 @@ spotifyframes export --table tracks --out tracks.parquet
 ## 📂 Project Structure
 
 ```
-spotifyframes/
+AJsSpotim8/
 ├── notebooks/
 │   ├── 01_sync_data.ipynb
 │   ├── 02_analyze_library.ipynb

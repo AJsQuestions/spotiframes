@@ -1,5 +1,5 @@
 """
-🎵 Spotify Library Dashboard - Interactive Analytics
+🎵 AJsSpotim8 - Your Personal Spotify Analytics
 A full-featured web application with crossfiltering charts.
 """
 
@@ -41,7 +41,7 @@ DATA_DIR = PROJECT_ROOT / 'data'
 app = dash.Dash(
     __name__,
     suppress_callback_exceptions=True,
-    title="Spotify Analytics",
+    title="AJsSpotim8",
     update_title=None,
     external_stylesheets=[
         "https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap"
@@ -881,7 +881,7 @@ def create_sidebar():
         html.Div([
             html.A([
                 html.Div("🎵", className="sidebar-logo-icon"),
-                html.Span("Spotify Analytics", className="sidebar-logo-text"),
+                html.Span("AJsSpotim8", className="sidebar-logo-text"),
             ], className="sidebar-logo", href="/"),
         ], className="sidebar-header"),
         
@@ -930,7 +930,7 @@ def create_sidebar():
         
         # Footer
         html.Div([
-            html.Div("Powered by SpotifyFrames", className="sidebar-footer-text"),
+            html.Div("AJsSpotim8 • Made with 🎵", className="sidebar-footer-text"),
         ], className="sidebar-footer"),
     ], className="sidebar")
 
@@ -1357,7 +1357,7 @@ def page_loading():
     return html.Div([
         html.Div([
             html.Div("🎵", className="login-logo"),
-            html.H1("Spotify Analytics", className="login-title"),
+            html.H1("AJsSpotim8", className="login-title"),
             html.P("Interactive visualization of your music library", className="login-subtitle"),
             html.Button("Load Library Data", id='load-data-btn', className="btn-primary"),
             html.Div(id='login-status'),
@@ -1714,7 +1714,7 @@ def reload_data(n_clicks):
 # ============================================================================
 
 if __name__ == '__main__':
-    print("🎵 Starting Spotify Analytics Dashboard...")
+    print("🎵 Starting AJsSpotim8 Dashboard...")
     print(f"📁 Data directory: {DATA_DIR}")
     dm.initialize()
     app.run(debug=True, port=8050)
