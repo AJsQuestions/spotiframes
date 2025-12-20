@@ -88,3 +88,4 @@ Add `http://localhost:5173/spotim8/` as a Redirect URI in your Spotify app.
 ## 📄 License
 
 MIT - Use freely for your own projects!
+
