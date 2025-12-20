@@ -6,7 +6,7 @@ A modern, privacy-first Spotify analytics dashboard. **Anyone** can login with t
 
 ## 🌐 Live Demo
 
-**https://ajsquestions.github.io/spotiframes/**
+**https://ajsquestions.github.io/spotim8/**
 
 ## ✨ How It Works
 
@@ -64,7 +64,7 @@ By default, Spotify apps are in "Development Mode" which allows up to **25 users
 ## 🖥️ Local Development
 
 ```bash
-cd web
+cd spotim8_app
 
 # Create .env file
 echo "VITE_SPOTIFY_CLIENT_ID=your_client_id" > .env
@@ -74,7 +74,7 @@ npm install
 npm run dev
 ```
 
-Add `http://localhost:5173/spotiframes/` as a Redirect URI in your Spotify app.
+Add `http://localhost:5173/spotim8/` as a Redirect URI in your Spotify app.
 
 ## 🚀 Tech Stack
 

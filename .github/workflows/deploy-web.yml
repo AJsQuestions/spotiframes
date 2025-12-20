@@ -7,7 +7,7 @@ on:
   push:
     branches: ['main']
     paths:
-      - 'web/**'
+      - 'spotim8_app/**'
   workflow_dispatch:
 
 permissions:
@@ -31,14 +31,14 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: spotim8_app/package-lock.json
 
       - name: Install dependencies
-        working-directory: ./web
+        working-directory: ./spotim8_app
         run: npm ci
 
       - name: Build
-        working-directory: ./web
+        working-directory: ./spotim8_app
         run: npm run build
         env:
           VITE_SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIPY_CLIENT_ID }}
@@ -49,7 +49,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './web/dist'
+          path: './spotim8_app/dist'
 
   deploy:
     environment:

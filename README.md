@@ -13,7 +13,7 @@ Turn your Spotify library into tidy DataFrames, analyze your listening habits, a
 - 🤖 **Daily Automation** - GitHub Actions updates playlists automatically
 - 💾 **Local Cache** - Parquet files for fast offline access
 - 🔄 **No Duplicates** - Smart deduplication on every run
-- 🌐 **[Web Dashboard](https://ajsquestions.github.io/spotiframes/)** - Beautiful React UI for analysis
+- 🌐 **[Web Dashboard](https://ajsquestions.github.io/spotim8/)** - Beautiful React UI for analysis
 
 ## 🚀 Quick Start
 
@@ -87,7 +87,7 @@ Actions → Daily Spotify Playlist Update → Run workflow
 A modern React-based Spotify analytics dashboard:
 
 ```bash
-cd web
+cd spotim8_app
 npm install
 npm run dev
 ```
@@ -150,7 +150,7 @@ spotim8/
 │   ├── 03_playlist_analysis.ipynb
 │   ├── 04_liked_songs_monthly_playlists.ipynb
 │   └── lib.py                    # Shared utilities
-├── web/                          # React web app
+├── spotim8_app/                  # React web app
 │   ├── src/
 │   └── package.json
 ├── scripts/
