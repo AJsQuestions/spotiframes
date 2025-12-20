@@ -72,3 +72,8 @@ env/
 
 # Jupyter
 .ipynb_checkpoints/
+
+# Local dev data (personal library export)
+spotim8_app/public/dev-data/
+# API response cache
+data/.api_cache/
