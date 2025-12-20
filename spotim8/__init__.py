@@ -21,6 +21,7 @@ from .client import (
     DEFAULT_SCOPE,
 )
 from .catalog import CacheConfig, DataCatalog
+from .ratelimit import set_response_cache
 from .export import export_table
 from .features import (
     playlist_profile_features,
@@ -43,6 +44,7 @@ __all__ = [
     # Configuration
     "CacheConfig",
     "DataCatalog",
+    "set_response_cache",
     # Utilities
     "export_table",
     # Feature engineering
