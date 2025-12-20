@@ -18,7 +18,7 @@ export default function Clusters() {
   const clusterData = useMemo(() => {
     return playlists.slice(0, 12).map((playlist, i) => {
       // Generate pseudo-coordinates based on playlist ID hash
-      const hash = playlist.id.split('').reduce((a, b) => a + b.charCodeAt(0), 0)
+      const hash = playlist.id.split('').reduce((a: number, b: string) => a + b.charCodeAt(0), 0)
       return {
         id: playlist.id,
         name: playlist.name.length > 20 ? playlist.name.substring(0, 20) + '...' : playlist.name,

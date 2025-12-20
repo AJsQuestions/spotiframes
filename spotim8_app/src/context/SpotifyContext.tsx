@@ -148,7 +148,7 @@ export function SpotifyProvider({ children }: { children: ReactNode }) {
         
         try {
           const trackItems = await spotify.getPlaylistTracks(playlist.id)
-          trackItems.forEach(item => {
+          trackItems.forEach((item: spotify.PlaylistTrackItem) => {
             if (item.track && item.track.id) {
               const existing = allTracks.get(item.track.id)
               if (existing) {
@@ -159,7 +159,7 @@ export function SpotifyProvider({ children }: { children: ReactNode }) {
                   playlistIds: new Set([playlist.id]),
                 })
               }
-              item.track.artists.forEach(a => artistIds.add(a.id))
+              item.track.artists.forEach((a: { id: string; name: string }) => artistIds.add(a.id))
             }
           })
         } catch (err) {
@@ -171,7 +171,7 @@ export function SpotifyProvider({ children }: { children: ReactNode }) {
       setLoadingProgress({ stage: 'Loading liked songs...', progress: 65 })
       try {
         const likedTracks = await spotify.getSavedTracks()
-        likedTracks.forEach(item => {
+        likedTracks.forEach((item: spotify.PlaylistTrackItem) => {
           if (item.track && item.track.id) {
             const existing = allTracks.get(item.track.id)
             if (existing) {
@@ -182,7 +182,7 @@ export function SpotifyProvider({ children }: { children: ReactNode }) {
                 playlistIds: new Set(['__liked__']),
               })
             }
-            item.track.artists.forEach(a => artistIds.add(a.id))
+            item.track.artists.forEach((a: { id: string; name: string }) => artistIds.add(a.id))
           }
         })
       } catch (err) {
@@ -194,7 +194,7 @@ export function SpotifyProvider({ children }: { children: ReactNode }) {
       const artistGenres = new Map<string, string[]>()
       try {
         const artists = await spotify.getArtists(Array.from(artistIds))
-        artists.forEach(artist => {
+        artists.forEach((artist: spotify.SpotifyArtist | null) => {
           if (artist) {
             artistGenres.set(artist.id, artist.genres)
           }
