@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import { useSpotify } from '../context/SpotifyContext'
-import { Disc3, Shield, Lock, Eye, Github, ExternalLink } from 'lucide-react'
+import { Disc3, Shield, Lock, Eye, Github } from 'lucide-react'
 
 export default function LoginPage() {
   const { login, isLoading } = useSpotify()

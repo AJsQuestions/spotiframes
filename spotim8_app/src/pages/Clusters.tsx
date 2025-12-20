@@ -32,7 +32,7 @@ export default function Clusters() {
 
   // Heatmap data
   const heatmapData = useMemo(() => {
-    return playlists.slice(0, 8).map((p, pi) => {
+    return playlists.slice(0, 8).map((p) => {
       const profile: Record<string, number> = {}
       genreList.forEach((genre, gi) => {
         // Generate pseudo-random but consistent values

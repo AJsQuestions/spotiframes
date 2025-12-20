@@ -12,7 +12,7 @@ const chartColors = ['#00ffcc', '#ff00aa', '#ffcc00', '#00aaff', '#aa66ff', '#ff
 const genreList = ['Hip-Hop', 'R&B/Soul', 'Electronic', 'Rock', 'Pop', 'Indie', 'Other']
 
 export default function Playlists() {
-  const { playlists, genreData } = useSpotify()
+  const { playlists } = useSpotify()
   const [selectedPlaylistId, setSelectedPlaylistId] = useState(playlists[0]?.id || '')
 
   const selectedPlaylist = playlists.find(p => p.id === selectedPlaylistId) || playlists[0]
@@ -36,7 +36,7 @@ export default function Playlists() {
 
   // Radar data for selected playlist
   const radarData = useMemo(() => {
-    return genreList.slice(0, 6).map((genre, i) => ({
+    return genreList.slice(0, 6).map((genre) => ({
       genre,
       value: genreBars.find(g => g.name === genre)?.value || 0,
       fullMark: 60,

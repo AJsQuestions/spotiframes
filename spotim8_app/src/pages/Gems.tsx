@@ -6,7 +6,6 @@ import {
 import PageHeader from '../components/PageHeader'
 import Card from '../components/Card'
 import { useSpotify } from '../context/SpotifyContext'
-import { Play, ExternalLink } from 'lucide-react'
 
 const genreColors: Record<string, string> = {
   'Hip-Hop': '#00ffcc',

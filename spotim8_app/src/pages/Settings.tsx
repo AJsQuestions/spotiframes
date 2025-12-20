@@ -2,10 +2,7 @@ import { motion } from 'framer-motion'
 import PageHeader from '../components/PageHeader'
 import Card from '../components/Card'
 import { useSpotify } from '../context/SpotifyContext'
-import { 
-  CheckCircle, Shield, Lock, Eye, Github, ExternalLink, 
-  RefreshCw, LogOut, Database, Trash2 
-} from 'lucide-react'
+import { Shield, Lock, Eye, RefreshCw, LogOut, Database } from 'lucide-react'
 
 export default function Settings() {
   const { libraryData, user, logout, loadData, isDataLoading } = useSpotify()

@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react'
-import { motion } from 'framer-motion'
 import {
   Treemap, ResponsiveContainer, Tooltip, RadarChart,
   PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Legend,
@@ -7,7 +6,6 @@ import {
 import PageHeader from '../components/PageHeader'
 import Card from '../components/Card'
 import { useSpotify } from '../context/SpotifyContext'
-import { getPlaylistGenreProfile } from '../lib/analytics'
 
 const chartColors = ['#00ffcc', '#ff00aa', '#ffcc00', '#00aaff', '#aa66ff', '#ff6600', '#00ff66', '#ff0066']
 
@@ -24,7 +22,7 @@ const genreColorMap: Record<string, string> = {
 }
 
 export default function Explore() {
-  const { topArtists, playlists, genreData, tracks } = useSpotify()
+  const { topArtists, playlists, genreData } = useSpotify()
   const [selectedPlaylist, setSelectedPlaylist] = useState<string>('')
 
   // Build treemap data from artists
@@ -37,22 +35,6 @@ export default function Explore() {
       fill: genreColorMap[artist.genre] || chartColors[i % chartColors.length],
     }))
   }, [topArtists])
-
-  // Playlist genre heatmap data
-  const heatmapData = useMemo(() => {
-    return playlists.slice(0, 10).map(p => {
-      // Calculate genre distribution for this playlist
-      const playlistTracks = tracks.filter(t => 
-        // This is a simplification - we'd need proper playlist-track mapping
-        true
-      )
-      const profile = getPlaylistGenreProfile(playlistTracks.slice(0, 50))
-      return {
-        name: p.name.length > 25 ? p.name.substring(0, 25) + '...' : p.name,
-        ...profile,
-      }
-    })
-  }, [playlists, tracks])
 
   // Radar data for library profile
   const radarData = useMemo(() => {
@@ -94,35 +76,7 @@ export default function Explore() {
               aspectRatio={4 / 3}
               stroke="#050508"
               fill="#00ffcc"
-              content={({ x, y, width, height, name, fill }: any) => {
-                if (width < 40 || height < 30) return null
-                return (
-                  <g>
-                    <rect
-                      x={x}
-                      y={y}
-                      width={width}
-                      height={height}
-                      fill={fill}
-                      stroke="#050508"
-                      strokeWidth={2}
-                      rx={4}
-                      style={{ transition: 'all 0.2s' }}
-                    />
-                    <text
-                      x={x + width / 2}
-                      y={y + height / 2}
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                      fill="#050508"
-                      fontSize={Math.min(width / 8, 14)}
-                      fontWeight={600}
-                    >
-                      {width > 60 ? name : name?.substring(0, 8)}
-                    </text>
-                  </g>
-                )
-              }}
+              isAnimationActive={true}
             >
               <Tooltip content={<CustomTooltip />} />
             </Treemap>
@@ -145,7 +99,7 @@ export default function Explore() {
                   </tr>
                 </thead>
                 <tbody>
-                  {playlists.slice(0, 8).map((playlist, i) => (
+                  {playlists.slice(0, 8).map((playlist) => (
                     <tr key={playlist.id} className="border-t border-border-subtle">
                       <td className="text-sm text-text-primary p-3 max-w-[150px] truncate">
                         {playlist.name.length > 20 ? playlist.name.substring(0, 20) + '...' : playlist.name}
