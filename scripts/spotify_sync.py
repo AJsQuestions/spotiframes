@@ -284,6 +284,9 @@ def sync_full_library() -> bool:
     """
     Sync full library using spotim8 - updates all parquet files.
     
+    Uses incremental sync - only fetches playlists that have changed
+    based on Spotify's snapshot_id mechanism.
+    
     Updates:
     - playlists.parquet
     - playlist_tracks.parquet  
@@ -308,7 +311,19 @@ def sync_full_library() -> bool:
             cache=CacheConfig(dir=DATA_DIR)
         )
         
-        # Sync library (incremental - only fetches changes)
+        # Check for existing cached data
+        existing_status = sf.status()
+        if existing_status.get("playlist_tracks_count", 0) > 0:
+            log(f"📦 Found cached data from {existing_status.get('last_sync', 'unknown')}")
+            log(f"   • {existing_status.get('playlists_count', 0):,} playlists")
+            log(f"   • {existing_status.get('playlist_tracks_count', 0):,} playlist tracks")
+            log(f"   • {existing_status.get('tracks_count', 0):,} unique tracks")
+            log(f"   • {existing_status.get('artists_count', 0):,} artists")
+            log("🔄 Running incremental sync (only changed playlists)...")
+        else:
+            log("📭 No cached data found - running full sync...")
+        
+        # Sync library (incremental - only fetches changes based on snapshot_id)
         stats = sf.sync(
             owned_only=True,
             include_liked_songs=True
@@ -316,12 +331,16 @@ def sync_full_library() -> bool:
         
         log(f"✅ Library sync complete: {stats}")
         
-        # Force regenerate derived tables
-        _ = sf.tracks()
-        _ = sf.artists()
-        _ = sf.library_wide()
+        # Only regenerate derived tables if something changed
+        if stats.get("playlists_updated", 0) > 0 or stats.get("tracks_added", 0) > 0:
+            log("🔧 Regenerating derived tables...")
+            _ = sf.tracks()
+            _ = sf.artists()
+            _ = sf.library_wide()
+            log("✅ All parquet files updated")
+        else:
+            log("✅ No changes detected - using cached derived tables")
         
-        log("✅ All parquet files updated")
         return True
         
     except Exception as e:
@@ -700,16 +719,18 @@ Examples:
     try:
         # Data sync phase
         if not args.skip_sync:
-            # Full library sync using spotim8
-            sync_full_library()
+            # Full library sync using spotim8 (includes liked songs and artists)
+            spotim8_synced = sync_full_library()
             
-            # Sync liked songs
-            liked_tracks = sync_liked_songs(sp)
-            
-            if liked_tracks:
-                # Sync artists for genre info
-                track_ids = [t["track_id"] for t in liked_tracks]
-                sync_artists(sp, track_ids)
+            # Only use fallback sync if spotim8 is not available
+            if not spotim8_synced:
+                log("Using fallback sync (spotim8 not available)")
+                liked_tracks = sync_liked_songs(sp)
+                
+                if liked_tracks:
+                    # Sync artists for genre info
+                    track_ids = [t["track_id"] for t in liked_tracks]
+                    sync_artists(sp, track_ids)
         
         # Playlist update phase
         if not args.sync_only:

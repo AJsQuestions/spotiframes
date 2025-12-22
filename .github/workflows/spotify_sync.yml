@@ -8,6 +8,10 @@ on:
   # Allow manual trigger
   workflow_dispatch:
 
+# Allow the workflow to push commits
+permissions:
+  contents: write
+
 jobs:
   sync-and-update:
     runs-on: ubuntu-latest
@@ -15,6 +19,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # Need full history for proper git operations
+          fetch-depth: 0
       
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -27,13 +34,15 @@ jobs:
           pip install pandas pyarrow spotipy tqdm python-dotenv
           pip install -e .
       
-      - name: Restore cached data
-        uses: actions/cache@v4
-        with:
-          path: data/
-          key: spotify-data-${{ github.run_id }}
-          restore-keys: |
-            spotify-data-
+      - name: Show existing data status
+        run: |
+          echo "Checking for existing parquet files..."
+          if ls data/*.parquet 1>/dev/null 2>&1; then
+            echo "Found existing parquet files:"
+            ls -lh data/*.parquet
+          else
+            echo "No parquet files found - will do full sync"
+          fi
       
       - name: Sync library and update playlists
         env:
@@ -48,10 +57,20 @@ jobs:
         run: |
           python scripts/spotify_sync.py
       
-      - name: Save cached data
-        uses: actions/cache/save@v4
-        if: always()
-        with:
-          path: data/
-          key: spotify-data-${{ github.run_id }}
-
+      - name: Commit updated parquet files
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          # Add only parquet files (not meta.json or cache)
+          git add data/*.parquet || true
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to parquet files"
+          else
+            echo "Committing updated parquet files..."
+            git commit -m "chore: sync spotify library data [skip ci]"
+            git push
+            echo "Changes pushed to repository"
+          fi
