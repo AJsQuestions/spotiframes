@@ -54,7 +54,7 @@ def _get_cached_response(cache_key: str) -> Optional[Any]:
         data = json.loads(cache_file.read_text())
         if time.time() - data.get("timestamp", 0) < RESPONSE_CACHE_TTL:
             return data.get("response")
-    except:
+    except Exception:
         pass
     return None
 
@@ -67,7 +67,7 @@ def _save_cached_response(cache_key: str, response: Any) -> None:
         cache_file = RESPONSE_CACHE_DIR / f"{cache_key}.json"
         data = {"timestamp": time.time(), "response": response}
         cache_file.write_text(json.dumps(data))
-    except:
+    except Exception:
         pass  # Ignore cache write errors
 
 

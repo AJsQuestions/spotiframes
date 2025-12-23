@@ -131,7 +131,7 @@ class Spotim8:
         print(f"📁 Cache directory: {s['cache_dir']}")
         print(f"👤 User: {s['user_id']}")
         print(f"🕐 Last sync: {s['last_sync']}")
-        print(f"\n📊 Cached data:")
+        print("\n📊 Cached data:")
         print(f"   • Playlists: {s['playlists_count']:,}")
         print(f"   • Playlist tracks: {s['playlist_tracks_count']:,}")
         print(f"   • Unique tracks: {s['tracks_count']:,}")
@@ -164,7 +164,7 @@ class Spotim8:
         
         # Filter to owned only
         if owned_only:
-            pls = pls[pls["is_owned"] == True].copy()
+            pls = pls[pls["is_owned"].eq(True)].copy()
         
         stats["playlists_checked"] = len(pls)
         
@@ -190,7 +190,7 @@ class Spotim8:
             # Load existing or create new
             pt = self.catalog.load("playlist_tracks")
             if pt is None or force:
-                pt = pd.DataFrame(columns=["playlist_id","track_id","track_uri","is_local","added_at","added_by","position"])
+                    pt = pd.DataFrame(columns=["playlist_id", "track_id", "track_uri", "is_local", "added_at", "added_by", "position"])
             else:
                 pt = pt[~pt["playlist_id"].isin(changed)].copy()
 
@@ -406,7 +406,7 @@ class Spotim8:
         pls = self.playlists(force=force, include_liked_songs=include_liked_songs)
         
         if owned_only:
-            pls_to_fetch = pls[pls["is_owned"] == True].copy()
+            pls_to_fetch = pls[pls["is_owned"].eq(True)].copy()
             print(f"📂 Fetching tracks from {len(pls_to_fetch)} owned playlists (skipping {len(pls) - len(pls_to_fetch)} followed playlists)")
         else:
             pls_to_fetch = pls.copy()
@@ -448,7 +448,7 @@ class Spotim8:
         print(f"❤️  Including {liked_count:,} liked songs (master playlist)")
         
         if actual_tracks < expected_tracks * 0.9:  # Allow 10% tolerance for local/unavailable tracks
-            print(f"⚠️  Warning: Got fewer tracks than expected. Some may be local files or unavailable.")
+            print("⚠️  Warning: Got fewer tracks than expected. Some may be local files or unavailable.")
         
         return self.catalog.save(key, df)
 
@@ -594,7 +594,7 @@ class Spotim8:
         
         # Filter playlists to owned only for the join
         if owned_only:
-            pl = pl[pl["is_owned"] == True].copy()
+            pl = pl[pl["is_owned"].eq(True)].copy()
 
         primary = ta[ta["position"].eq(0)].merge(ar, on="artist_id", how="left")
         primary = primary.rename(columns={

@@ -171,7 +171,7 @@ def release_year_features(
             return np.nan
         try:
             return int(str(x)[:4])
-        except:
+        except Exception:
             return np.nan
     
     df["release_year"] = df[release_date_col].apply(extract_year)
