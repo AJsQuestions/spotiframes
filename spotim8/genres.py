@@ -5,6 +5,8 @@ This module contains comprehensive mappings of Spotify genre tags to broad categ
 Used by both the sync script and notebooks for consistent genre classification.
 """
 
+from typing import Optional
+
 # Genre classification rules for split playlists (HipHop/Dance/Other)
 # Exhaustive list of Spotify genre tags
 GENRE_SPLIT_RULES = {
@@ -242,7 +244,7 @@ GENRE_RULES = [
 ]
 
 
-def get_split_genre(genre_list: list, include_other: bool = True) -> str | None:
+def get_split_genre(genre_list: list, include_other: bool = True) -> Optional[str]:
     """Map artist genres to HipHop, Dance, or Other.
     
     Args:
@@ -264,7 +266,7 @@ def get_split_genre(genre_list: list, include_other: bool = True) -> str | None:
     return "Other" if include_other else None
 
 
-def get_broad_genre(genre_list: list) -> str | None:
+def get_broad_genre(genre_list: list) -> Optional[str]:
     """Map artist genres to broad category for master playlists.
     
     Args:

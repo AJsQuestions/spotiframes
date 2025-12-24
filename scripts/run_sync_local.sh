@@ -21,14 +21,19 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # Change to project root directory
 cd "$PROJECT_ROOT"
 
-# Check if virtual environment exists (optional, but recommended)
+# Activate virtual environment (required)
 if [ -d "venv" ]; then
     source venv/bin/activate
 elif [ -d ".venv" ]; then
     source .venv/bin/activate
+else
+    echo "ERROR: Virtual environment not found!"
+    echo "Run ./scripts/setup_local.sh first to set up the environment"
+    exit 1
 fi
 
 # Load environment variables from .env file if it exists
+# Python scripts will use python-dotenv, but we also load here for bash compatibility
 if [ -f ".env" ]; then
     set -a
     source .env
