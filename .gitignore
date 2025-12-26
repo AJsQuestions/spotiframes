@@ -64,6 +64,9 @@ data/.api_cache/
 data/catalog_meta.json
 data/meta.json
 
+# User-specific analysis outputs
+data/playlist_consolidation_recommendations.csv
+
 # Streaming history (user imports these manually)
 data/streaming_history/*.json
 !data/streaming_history/README.md
