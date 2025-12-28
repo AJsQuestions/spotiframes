@@ -13,7 +13,6 @@ Turn your Spotify library into tidy DataFrames, analyze your listening habits, a
 - 🤖 **Daily Automation** - Local cron job updates playlists automatically
 - 💾 **Local Cache** - Parquet files for fast offline access
 - 🔄 **No Duplicates** - Smart deduplication on every run
-- 📱 **iOS App** - Trigger syncs and view your library from your iPhone
 
 ## 📋 Requirements
 
@@ -226,38 +225,6 @@ Get email notifications after each sync run. Configure in your `.env` file:
 
 ---
 
-## 📱 iOS App
-
-A simple iOS app to trigger sync automation and view your library from your iPhone.
-
-### Quick Setup
-
-1. **Start the server** (on your Mac/computer):
-   ```bash
-   source venv/bin/activate
-   pip install flask flask-cors  # If not already installed
-   python server/server.py
-   ```
-   Note the IP address shown (e.g., `http://192.168.1.252:5001`)
-
-2. **Build the iOS app:**
-   - Create a new Xcode project and add source files from `apps/ios/Spotim8/`
-   - See [apps/ios/README.md](apps/ios/README.md) for detailed step-by-step instructions
-   - Connect your iPhone and build (⌘R)
-
-3. **Configure the app:**
-   - Open Settings (gear icon)
-   - Enter your server IP address
-   - Test connection and save
-
-4. **Use the app:**
-   - Tap "Run Sync Automation" to trigger sync
-   - Tap "Run Static Analysis" to analyze your library
-   - Browse your library in the Library tab
-
-**📖 For complete setup instructions, see [apps/ios/README.md](apps/ios/README.md)**
-
----
 
 ## 📁 Data Tables
 
@@ -318,19 +285,6 @@ spotim8/
 │   ├── get_token.py              # Get refresh token for automation
 │   ├── email_notify.py           # Email notification service
 │   └── cron.sh                   # Cron job setup
-├── server/                       # HTTP server for iOS app
-│   ├── server.py                 # Flask server
-│   ├── requirements.txt          # Server dependencies
-│   ├── start_server.sh           # Convenience script
-│   └── README.md                 # Server documentation
-├── apps/                         # Client applications
-│   └── ios/                      # iOS app (SwiftUI)
-│       ├── Spotim8/              # Swift source files
-│       │   ├── Spotim8App.swift  # App entry point
-│       │   ├── Views/            # UI views
-│       │   ├── Services/         # API services
-│       │   └── Models/           # Data models
-│       └── README.md             # iOS app setup guide
 ├── examples/
 │   └── 01_quickstart.py          # Quick start example
 ├── tests/                        # Test suite
