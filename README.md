@@ -293,12 +293,13 @@ spotim8/
 │   ├── 04_liked_songs_monthly_playlists.ipynb # Create playlists
 │   └── 05_identify_redundant_playlists.ipynb # Find similar playlists
 ├── scripts/                      # Automation and utility scripts
-│   ├── sync.py                   # Main sync & playlist update
-│   ├── runner.py                 # Local sync runner (cron wrapper)
+│   ├── sync.py                   # Main sync & playlist update script
+│   ├── runner.py                 # Local sync runner wrapper
+│   ├── cron_wrapper.sh           # Robust cron wrapper (lock files, log rotation)
+│   ├── cron.sh                   # Cron job setup helper
 │   ├── setup.py                  # Initial setup helper
 │   ├── get_token.py              # Get refresh token for automation
-│   ├── email_notify.py           # Email notification service
-│   └── cron.sh                   # Cron job setup
+│   └── email_notify.py           # Email notification service
 ├── examples/
 │   └── 01_quickstart.py          # Quick start example
 ├── tests/                        # Test suite
