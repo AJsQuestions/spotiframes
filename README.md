@@ -187,6 +187,13 @@ Set up daily sync on Linux/Mac:
 
 The cron job runs daily at 2:00 AM and logs to `logs/sync.log`.
 
+**⚠️ macOS Users:** Cron jobs require **Full Disk Access** permission. See [CRON_SETUP.md](CRON_SETUP.md) for setup instructions.
+
+**Check cron status:**
+```bash
+./scripts/check_cron.sh
+```
+
 **Features:**
 - ✅ Automatic log rotation (keeps last 3 backups)
 - ✅ Prevents concurrent runs with lock file mechanism
