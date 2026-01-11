@@ -68,6 +68,9 @@ from datetime import datetime
 from pathlib import Path
 from dateutil.relativedelta import relativedelta
 from contextlib import contextmanager
+from functools import lru_cache
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+import multiprocessing as mp
 
 # Suppress urllib3/OpenSSL warnings (common on macOS with LibreSSL)
 warnings.filterwarnings("ignore", message=".*urllib3.*OpenSSL.*", category=UserWarning)
@@ -248,6 +251,8 @@ MONTH_NAMES = MONTH_NAMES_SHORT  # Default to short for backward compatibility
 
 # Global log buffer for email notifications
 _log_buffer = []
+# Global verbose flag (set by command-line argument)
+_verbose = False
 
 def log(msg: str) -> None:
     """Print message with timestamp and optionally buffer for email.
@@ -266,6 +271,14 @@ def log(msg: str) -> None:
     # Buffer log for email notification
     if EMAIL_AVAILABLE and is_email_enabled():
         _log_buffer.append(log_line)
+
+def verbose_log(msg: str) -> None:
+    """Print verbose message only if verbose mode is enabled.
+    
+    Uses same formatting as log() but only prints when --verbose is set.
+    """
+    if _verbose:
+        log(f"🔍 [VERBOSE] {msg}")
 
 # Set log function for genre_inference module (after log is defined)
 import spotim8.genre_inference as genre_inference_module
@@ -292,6 +305,14 @@ def api_call(fn, *args, max_retries: int = 6, backoff_factor: float = 1.0, **kwa
     """
     global _RATE_BACKOFF_MULTIPLIER
 
+    # Verbose logging for API calls
+    fn_name = getattr(fn, '__name__', str(fn))
+    verbose_log(f"API call: {fn_name}()")
+    if _verbose and args:
+        verbose_log(f"  Args: {args[:2]}{'...' if len(args) > 2 else ''}")
+    if _verbose and kwargs:
+        verbose_log(f"  Kwargs: {list(kwargs.keys())}")
+
     for attempt in range(max_retries):
         try:
             result = fn(*args, **kwargs)
@@ -303,6 +324,8 @@ def api_call(fn, *args, max_retries: int = 6, backoff_factor: float = 1.0, **kwa
             # Multiply by adaptive multiplier (increases when we hit rate limits)
             delay = base_delay * _RATE_BACKOFF_MULTIPLIER
             if delay and delay > 0:
+                if _verbose and delay > 0.2:
+                    verbose_log(f"  API delay: {delay:.2f}s (backoff multiplier: {_RATE_BACKOFF_MULTIPLIER:.2f})")
                 time.sleep(delay)
             # Decay multiplier slowly towards 1.0 on success
             try:
@@ -339,10 +362,14 @@ def api_call(fn, *args, max_retries: int = 6, backoff_factor: float = 1.0, **kwa
                     except Exception:
                         pass
                 log(f"Transient/rate error: {e} — retrying in {wait:.1f}s (attempt {attempt+1}/{max_retries})")
+                verbose_log(f"  API call {fn_name}() failed with status {status}, retry_after={retry_after}")
                 time.sleep(wait)
                 # Increase adaptive multiplier to throttle further successful calls
                 try:
+                    old_mult = _RATE_BACKOFF_MULTIPLIER
                     _RATE_BACKOFF_MULTIPLIER = min(_RATE_BACKOFF_MAX, _RATE_BACKOFF_MULTIPLIER * 2.0)
+                    if _verbose and _RATE_BACKOFF_MULTIPLIER != old_mult:
+                        verbose_log(f"  Increased backoff multiplier: {old_mult:.2f} → {_RATE_BACKOFF_MULTIPLIER:.2f}")
                 except Exception:
                     pass
                 continue
@@ -410,6 +437,311 @@ def _to_uri(track_id: str) -> str:
         return f"spotify:track:{track_id}"
     return track_id
 
+
+# Global cache for genre data (loaded lazily)
+_genre_data_cache = None
+
+def _load_genre_data() -> tuple:
+    """Load genre data from parquet files (artists, track_artists). Returns (track_artists, artists) or (None, None) if not available."""
+    global _genre_data_cache
+    if _genre_data_cache is not None:
+        return _genre_data_cache
+    
+    try:
+        track_artists_path = DATA_DIR / "track_artists.parquet"
+        artists_path = DATA_DIR / "artists.parquet"
+        
+        if not (track_artists_path.exists() and artists_path.exists()):
+            _genre_data_cache = (None, None)
+            return (None, None)
+        
+        track_artists = pd.read_parquet(track_artists_path)
+        artists = pd.read_parquet(artists_path)
+        _genre_data_cache = (track_artists, artists)
+        return (track_artists, artists)
+    except Exception as e:
+        verbose_log(f"Failed to load genre data: {e}")
+        _genre_data_cache = (None, None)
+        return (None, None)
+
+def _uri_to_track_id(track_uri: str) -> str:
+    """Extract track ID from track URI."""
+    if track_uri.startswith("spotify:track:"):
+        return track_uri.replace("spotify:track:", "")
+    return track_uri
+
+def _get_genres_from_track_uris(track_uris: list) -> tuple:
+    """Get genres from a list of track URIs using cached data.
+    
+    Returns:
+        tuple: (specific_genres_counter, broad_genres_counter)
+            - specific_genres_counter: Counter of specific genres (e.g., "trap", "alternative hip hop")
+            - broad_genres_counter: Counter of broad genres (e.g., "Hip-Hop", "Electronic")
+    """
+    from collections import Counter
+    from spotim8.genres import get_all_broad_genres
+    
+    track_artists, artists = _load_genre_data()
+    if track_artists is None or artists is None:
+        return Counter(), Counter()
+    
+    # Convert URIs to track IDs
+    track_ids = [_uri_to_track_id(uri) for uri in track_uris]
+    
+    # Get artists for these tracks (track -> artists mapping)
+    track_artists_subset = track_artists[track_artists['track_id'].isin(track_ids)]
+    if len(track_artists_subset) == 0:
+        return Counter(), Counter()
+    
+    # Build track -> artist_ids mapping
+    track_to_artists = {}
+    for _, row in track_artists_subset.iterrows():
+        track_id = row['track_id']
+        artist_id = row['artist_id']
+        if track_id not in track_to_artists:
+            track_to_artists[track_id] = []
+        track_to_artists[track_id].append(artist_id)
+    
+    # Get unique artist IDs
+    all_artist_ids = track_artists_subset['artist_id'].unique()
+    
+    # Get genres from these artists
+    artists_subset = artists[artists['artist_id'].isin(all_artist_ids)]
+    artist_genres_map = {}
+    for idx, row in artists_subset.iterrows():
+        artist_id = row['artist_id']
+        genres_list = row['genres']
+        try:
+            if genres_list is None:
+                artist_genres_map[artist_id] = []
+            elif isinstance(genres_list, (list, tuple)):
+                artist_genres_map[artist_id] = list(genres_list) if len(genres_list) > 0 else []
+            elif hasattr(genres_list, '__iter__') and not isinstance(genres_list, str):
+                artist_genres_map[artist_id] = list(genres_list) if len(list(genres_list)) > 0 else []
+            else:
+                artist_genres_map[artist_id] = []
+        except (TypeError, ValueError, AttributeError):
+            artist_genres_map[artist_id] = []
+    
+    # Count genres per track (each track contributes once per genre)
+    specific_genres_counter = Counter()
+    broad_genres_counter = Counter()
+    
+    for track_id, artist_ids in track_to_artists.items():
+        # Collect all genres from all artists on this track
+        track_genres = set()
+        for artist_id in artist_ids:
+            track_genres.update(artist_genres_map.get(artist_id, []))
+        
+        # Count specific genres (each genre counts once per track)
+        specific_genres_counter.update(track_genres)
+        
+        # Get broad genres for this track's genres
+        broad_genres = get_all_broad_genres(list(track_genres))
+        # Count broad genres (each broad genre counts once per track)
+        broad_genres_counter.update(broad_genres)
+    
+    return specific_genres_counter, broad_genres_counter
+
+def _get_genre_emoji(genre: str) -> str:
+    """Get emoji for a genre."""
+    genre_lower = genre.lower()
+    emoji_map = {
+        # Broad genres
+        "hip-hop": "🎤",
+        "electronic": "🎧",
+        "dance": "💃",
+        "r&b/soul": "💜",
+        "r&b": "💜",
+        "soul": "💜",
+        "rock": "🎸",
+        "pop": "🎶",
+        "jazz": "🎷",
+        "country/folk": "🤠",
+        "country": "🤠",
+        "folk": "🤠",
+        "classical": "🎻",
+        "metal": "⚡",
+        "blues": "🎹",
+        "latin": "🌮",
+        "world": "🌍",
+        "indie": "🎨",
+        "alternative": "🎵",
+        # Specific genres
+        "hiphop": "🎤",
+        "trap": "🎧",
+        "house": "🏠",
+        "techno": "⚡",
+        "dubstep": "🔊",
+        "rap": "🎤",
+        "funk": "🎺",
+        "disco": "🪩",
+        "reggae": "☀️",
+        "punk": "🤘",
+        "gospel": "✨",
+    }
+    
+    # Check exact match first
+    if genre_lower in emoji_map:
+        return emoji_map[genre_lower]
+    
+    # Check partial matches
+    for key, emoji in emoji_map.items():
+        if key in genre_lower or genre_lower in key:
+            return emoji
+    
+    # Default emoji
+    return "🎵"
+
+def _format_genre_tags(specific_genres_counter, broad_genres_counter, max_tags: int = 20, max_length: int = 200) -> str:
+    """Format genre counters as a tag string for playlist description.
+    
+    Args:
+        specific_genres_counter: Counter of specific genres
+        broad_genres_counter: Counter of broad genres
+        max_tags: Maximum number of tags to include
+        max_length: Maximum length of the tag string
+    """
+    from collections import Counter
+    
+    if not specific_genres_counter and not broad_genres_counter:
+        return ""
+    
+    # Combine both counters, removing duplicates (prefer broad genre name if same)
+    # Sort everything by frequency (popularity)
+    combined_items = []
+    
+    # Add all genres with their counts, preferring broad genre names
+    all_genre_names = set(broad_genres_counter.keys()) | set(specific_genres_counter.keys())
+    
+    for genre in all_genre_names:
+        broad_count = broad_genres_counter.get(genre, 0)
+        specific_count = specific_genres_counter.get(genre, 0)
+        # Use the maximum count (most accurate representation)
+        total_count = max(broad_count, specific_count)
+        combined_items.append((genre, total_count))
+    
+    # Sort by frequency (descending), then alphabetically
+    combined_items.sort(key=lambda x: (-x[1], x[0]))
+    
+    # Extract genres in order (sorted by popularity)
+    unique_genres = [genre for genre, count in combined_items]
+    
+    # Limit number of tags and format with emojis
+    total_genres = len(unique_genres)
+    if total_genres > max_tags:
+        unique_genres = unique_genres[:max_tags]
+        remaining = total_genres - max_tags
+        # Format with emojis
+        genre_tags = [f"{_get_genre_emoji(g)} {g}" for g in unique_genres]
+        tag_str = ", ".join(genre_tags) + f" (+{remaining} more)"
+    else:
+        # Format with emojis
+        genre_tags = [f"{_get_genre_emoji(g)} {g}" for g in unique_genres]
+        tag_str = ", ".join(genre_tags)
+    
+    # Truncate if still too long
+    if len(tag_str) > max_length:
+        tag_str = tag_str[:max_length - 10] + "..."
+    
+    return tag_str
+
+def _add_genre_tags_to_description(current_description: str, track_uris: list, max_tags: int = 20) -> str:
+    """Add or update genre tags in playlist description."""
+    # Get genres for tracks (counters)
+    specific_genres_counter, broad_genres_counter = _get_genres_from_track_uris(track_uris)
+    if not specific_genres_counter and not broad_genres_counter:
+        return current_description  # No genres found, return as-is
+    
+    # Format genre tags
+    genre_tags = _format_genre_tags(specific_genres_counter, broad_genres_counter, max_tags=max_tags, max_length=200)
+    
+    # Spotify description limit is 300 chars
+    MAX_DESCRIPTION_LENGTH = 300
+    
+    # Build new description (check for emoji genre tags or "Genres:" pattern)
+    # Look for common emoji patterns or "Genres:" prefix
+    has_genre_tags = "Genres:" in current_description or any(emoji in current_description for emoji in ["🎤", "🎧", "💃", "💜", "🎸", "🎶", "🎷"])
+    
+    if has_genre_tags:
+        # Replace existing genre tags
+        # Try to find where genre tags start (look for emoji or "Genres:")
+        lines = current_description.split("\n")
+        base_lines = []
+        found_genre_start = False
+        for line in lines:
+            if "Genres:" in line or any(emoji in line for emoji in ["🎤", "🎧", "💃", "💜", "🎸", "🎶", "🎷"]):
+                found_genre_start = True
+                break
+            if line.strip():
+                base_lines.append(line)
+        
+        base_description = "\n".join(base_lines).strip()
+        new_description = f"{base_description}\n\n{genre_tags}" if base_description else genre_tags
+    else:
+        # Append genre tags
+        if current_description:
+            new_description = f"{current_description}\n\n{genre_tags}"
+        else:
+            new_description = genre_tags
+    
+    # Ensure total doesn't exceed limit
+    if len(new_description) > MAX_DESCRIPTION_LENGTH:
+        # Truncate genre tags if needed
+        has_genre_tags = "Genres:" in current_description or any(emoji in current_description for emoji in ["🎤", "🎧", "💃", "💜", "🎸", "🎶", "🎷"])
+        if current_description and not has_genre_tags:
+            available_space = MAX_DESCRIPTION_LENGTH - len(current_description) - 3
+            if available_space > 20:
+                genre_tags = _format_genre_tags(genres, max_tags=max_tags, max_length=available_space - 10)
+                new_description = f"{current_description}\n\n{genre_tags}"
+            else:
+                # Not enough space, return original
+                return current_description
+        else:
+            # Just genre tags, truncate
+            genre_tags = _format_genre_tags(genres, max_tags=max_tags, max_length=MAX_DESCRIPTION_LENGTH - 10)
+            new_description = genre_tags
+    
+    return new_description
+
+def _update_playlist_description_with_genres(sp: spotipy.Spotify, user_id: str, playlist_id: str, track_uris: list = None) -> bool:
+    """Update playlist description with genre tags from track URIs.
+    
+    Args:
+        sp: Spotify client
+        user_id: User ID
+        playlist_id: Playlist ID
+        track_uris: Optional list of track URIs. If None, gets all tracks from playlist.
+    """
+    try:
+        # Get current description
+        pl = api_call(sp.playlist, playlist_id, fields="description")
+        current_description = pl.get("description", "") or ""
+        
+        # Get track URIs - use provided ones or fetch all from playlist
+        if track_uris is None:
+            track_uris = list(get_playlist_tracks(sp, playlist_id, force_refresh=False))
+        
+        if not track_uris:
+            return False  # No tracks, skip
+        
+        # Add genre tags
+        new_description = _add_genre_tags_to_description(current_description, track_uris)
+        
+        # Only update if changed
+        if new_description != current_description:
+            api_call(
+                sp.user_playlist_change_details,
+                user_id,
+                playlist_id,
+                description=new_description
+            )
+            verbose_log(f"  Updated description with genre tags for playlist {playlist_id}")
+            return True
+        return False
+    except Exception as e:
+        verbose_log(f"  Failed to update description with genre tags: {e}")
+        return False
 
 def _parse_genres(genre_data) -> list:
     """Parse genre data from various formats."""
@@ -605,16 +937,24 @@ def format_playlist_name(template: str, month_str: str = None, genre: str = None
         date_includes_year = True
     elif mon and year_str:
         # Add separator between month and year
-        date_part = f"{mon}{month_sep}{year_str}" if month_sep else f"{mon}{year_str}"
-        date_includes_year = True  # date_part now includes the year
+        # FIX: Always include year_str in date_part, even if month_sep is empty
+        if month_sep:
+            date_part = f"{mon}{month_sep}{year_str}"
+        else:
+            date_part = f"{mon}{year_str}"
+        # FIX: date_part now includes the year, so set date_includes_year = True
+        # This prevents {year} placeholder from being replaced with year_str again
+        date_includes_year = True
     elif mon:
         date_part = mon
+        date_includes_year = False  # No year in date_part
     elif year_str:
         # Only year, no month - keep them separate for template replacement
         date_part = ""
         date_includes_year = False  # Year should be replaced separately in template
     else:
         date_part = ""
+        date_includes_year = False
     
     # Format the name using components
     # Replace template placeholders with formatted components
@@ -623,8 +963,14 @@ def format_playlist_name(template: str, month_str: str = None, genre: str = None
     formatted = formatted.replace("{prefix}", prefix_str)
     formatted = formatted.replace("{genre}", genre_str)
     formatted = formatted.replace("{mon}", date_part if (mon or month_includes_year) else "")
-    # Only replace {year} if date_part doesn't already include it
-    formatted = formatted.replace("{year}", "" if date_includes_year else (year_str if year_str else ""))
+    # FIX: Only replace {year} if date_part doesn't already include it
+    # This prevents duplicate years (e.g., "AJFindsJan2626" should be "AJFindsJan26")
+    if date_includes_year:
+        # Year is already included in date_part, replace {year} with empty string to avoid duplication
+        formatted = formatted.replace("{year}", "")
+    else:
+        # Year should be replaced separately in template (no month, or only year)
+        formatted = formatted.replace("{year}", year_str if year_str else "")
     
     # If template uses {owner}{prefix} pattern, replace with combined version
     if "{owner}{prefix}" in template or (owner and prefix_str and owner_prefix != f"{owner}{prefix_str}"):
@@ -695,7 +1041,10 @@ def get_existing_playlists(sp: spotipy.Spotify, force_refresh: bool = False) -> 
     global _playlist_cache, _playlist_cache_valid
     
     if _playlist_cache is not None and not force_refresh and _playlist_cache_valid:
+        verbose_log(f"Using cached playlists ({len(_playlist_cache)} playlists)")
         return _playlist_cache
+    
+    verbose_log(f"Fetching playlists from API (force_refresh={force_refresh})...")
     
     mapping = {}
     offset = 0
@@ -721,7 +1070,10 @@ def get_playlist_tracks(sp: spotipy.Spotify, playlist_id: str, force_refresh: bo
     global _playlist_tracks_cache
     
     if playlist_id in _playlist_tracks_cache and not force_refresh:
+        verbose_log(f"Using cached tracks for playlist {playlist_id} ({len(_playlist_tracks_cache[playlist_id])} tracks)")
         return _playlist_tracks_cache[playlist_id]
+    
+    verbose_log(f"Fetching tracks for playlist {playlist_id} from API (force_refresh={force_refresh})...")
     
     uris = set()
     offset = 0
@@ -772,7 +1124,7 @@ def compute_track_genres_incremental(stats: dict = None) -> None:
     log("\n--- Computing Track Genres (Smart Caching) ---")
     
     try:
-        # Load all data
+        # Load all data (with caching to avoid repeated reads)
         tracks_path = DATA_DIR / "tracks.parquet"
         track_artists_path = DATA_DIR / "track_artists.parquet"
         artists_path = DATA_DIR / "artists.parquet"
@@ -787,11 +1139,33 @@ def compute_track_genres_incremental(stats: dict = None) -> None:
         playlist_tracks_mtime = playlist_tracks_path.stat().st_mtime if playlist_tracks_path.exists() else 0
         playlists_mtime = playlists_path.stat().st_mtime if playlists_path.exists() else 0
         
-        tracks = pd.read_parquet(tracks_path)
-        track_artists = pd.read_parquet(track_artists_path)
-        artists = pd.read_parquet(artists_path)
-        playlist_tracks = pd.read_parquet(playlist_tracks_path)
-        playlists = pd.read_parquet(playlists_path)
+        # Load parquet files (use engine='pyarrow' for faster reads if available)
+        verbose_log(f"Loading parquet files from {DATA_DIR}...")
+        try:
+            verbose_log("  Attempting to load with pyarrow engine...")
+            tracks = pd.read_parquet(tracks_path, engine='pyarrow')
+            verbose_log(f"    Loaded tracks: {len(tracks):,} rows")
+            track_artists = pd.read_parquet(track_artists_path, engine='pyarrow')
+            verbose_log(f"    Loaded track_artists: {len(track_artists):,} rows")
+            artists = pd.read_parquet(artists_path, engine='pyarrow')
+            verbose_log(f"    Loaded artists: {len(artists):,} rows")
+            playlist_tracks = pd.read_parquet(playlist_tracks_path, engine='pyarrow')
+            verbose_log(f"    Loaded playlist_tracks: {len(playlist_tracks):,} rows")
+            playlists = pd.read_parquet(playlists_path, engine='pyarrow')
+            verbose_log(f"    Loaded playlists: {len(playlists):,} rows")
+        except Exception as e:
+            # Fallback to default engine if pyarrow not available
+            verbose_log(f"  PyArrow not available, using default engine: {e}")
+            tracks = pd.read_parquet(tracks_path)
+            verbose_log(f"    Loaded tracks: {len(tracks):,} rows")
+            track_artists = pd.read_parquet(track_artists_path)
+            verbose_log(f"    Loaded track_artists: {len(track_artists):,} rows")
+            artists = pd.read_parquet(artists_path)
+            verbose_log(f"    Loaded artists: {len(artists):,} rows")
+            playlist_tracks = pd.read_parquet(playlist_tracks_path)
+            verbose_log(f"    Loaded playlist_tracks: {len(playlist_tracks):,} rows")
+            playlists = pd.read_parquet(playlists_path)
+            verbose_log(f"    Loaded playlists: {len(playlists):,} rows")
         
         # Check if genres column exists, if not create it
         if "genres" not in tracks.columns:
@@ -923,52 +1297,126 @@ def compute_track_genres_incremental(stats: dict = None) -> None:
         
         tqdm.write(f"  🔄 Inferring genres for {len(tracks_to_process):,} track(s)...")
         
-        # Infer genres for tracks that need it
+        # Use parallel processing for genre inference (major performance boost)
+        num_workers = int(os.environ.get("GENRE_INFERENCE_WORKERS", min(mp.cpu_count() or 4, 8)))
+        use_parallel = _parse_bool_env("USE_PARALLEL_GENRE_INFERENCE", True) and len(tracks_to_process) > 50
+        
+        # Prepare track data list for processing
+        track_data_list = [
+            {
+                'track_id': row.track_id,
+                'track_name': getattr(row, 'name', None),
+                'album_name': getattr(row, 'album_name', None),
+            }
+            for row in tracks_to_process.itertuples()
+        ]
+        
         inferred_genres_map = {}
         
-        # Use tqdm for progress bar
-        track_iterator = tracks_to_process.itertuples()
-        if len(tracks_to_process) > 0:
-            track_iterator = tqdm(
-                track_iterator,
-                total=len(tracks_to_process),
-                desc="  Inferring genres",
-                unit="track",
-                ncols=100,
-                leave=False
-            )
-        
-        for track_row in track_iterator:
-            track_id = track_row.track_id
-            track_name = getattr(track_row, 'name', None)
-            album_name = getattr(track_row, 'album_name', None)
+        if use_parallel and num_workers > 1:
+            tqdm.write(f"  🚀 Using {num_workers} parallel workers for genre inference...")
+            verbose_log(f"Parallel processing enabled with {num_workers} workers")
+            verbose_log(f"Processing {len(track_data_list)} tracks in parallel")
             
-            genres = infer_genres_comprehensive(
-                track_id=track_id,
-                track_name=track_name,
-                album_name=album_name,
-                track_artists=track_artists,
-                artists=artists,
-                playlist_tracks=playlist_tracks,
-                playlists=playlists,
-                mode="split"  # Use split genres for tracks
-            )
+            # Worker function that processes a single track
+            # Uses ThreadPoolExecutor which can access the full DataFrames in memory
+            def _process_track(track_data):
+                """Process a single track's genre inference."""
+                try:
+                    track_id = track_data['track_id']
+                    track_name = track_data['track_name']
+                    album_name = track_data['album_name']
+                    
+                    genres = infer_genres_comprehensive(
+                        track_id=track_id,
+                        track_name=track_name,
+                        album_name=album_name,
+                        track_artists=track_artists,
+                        artists=artists,
+                        playlist_tracks=playlist_tracks,
+                        playlists=playlists,
+                        mode="split"
+                    )
+                    return (track_id, genres)
+                except Exception as e:
+                    # Return empty genres on error to avoid blocking
+                    return (track_data.get('track_id', ''), [])
             
-            inferred_genres_map[track_id] = genres
+            # Use ThreadPoolExecutor for parallel processing
+            # ThreadPoolExecutor shares memory, avoiding pickle overhead with DataFrames
+            with ThreadPoolExecutor(max_workers=num_workers) as executor:
+                # Submit all tasks
+                futures = {executor.submit(_process_track, track_data): track_data['track_id'] 
+                          for track_data in track_data_list}
+                
+                # Process completed tasks with progress bar
+                with tqdm(total=len(track_data_list), desc="  Inferring genres", unit="track", 
+                         ncols=100, leave=False) as pbar:
+                    for future in as_completed(futures):
+                        try:
+                            track_id, genres = future.result(timeout=30)  # 30s timeout per track
+                            inferred_genres_map[track_id] = genres
+                        except Exception as e:
+                            track_id = futures[future]
+                            tqdm.write(f"  ⚠️  Error inferring genres for {track_id}: {e}")
+                            inferred_genres_map[track_id] = []
+                        finally:
+                            pbar.update(1)
+        else:
+            verbose_log(f"Sequential processing (parallel disabled or small batch: {len(track_data_list)} tracks)")
+            # Sequential processing for small batches or when parallel is disabled
+            track_iterator = tracks_to_process.itertuples()
+            if len(tracks_to_process) > 0:
+                track_iterator = tqdm(
+                    track_iterator,
+                    total=len(tracks_to_process),
+                    desc="  Inferring genres",
+                    unit="track",
+                    ncols=100,
+                    leave=False
+                )
+            
+            for track_row in track_iterator:
+                track_id = track_row.track_id
+                track_name = getattr(track_row, 'name', None)
+                album_name = getattr(track_row, 'album_name', None)
+                
+                try:
+                    genres = infer_genres_comprehensive(
+                        track_id=track_id,
+                        track_name=track_name,
+                        album_name=album_name,
+                        track_artists=track_artists,
+                        artists=artists,
+                        playlist_tracks=playlist_tracks,
+                        playlists=playlists,
+                        mode="split"  # Use split genres for tracks
+                    )
+                    inferred_genres_map[track_id] = genres
+                except Exception as e:
+                    tqdm.write(f"  ⚠️  Error inferring genres for {track_id}: {e}")
+                    inferred_genres_map[track_id] = []
         
-        # Update tracks with inferred genres
+        # Update tracks with inferred genres (optimized batch update)
         if inferred_genres_map:
             tqdm.write("  💾 Updating track genres...")
-            for track_id, genres in inferred_genres_map.items():
-                track_mask = tracks["track_id"] == track_id
-                track_rows = tracks[track_mask]
-                if len(track_rows) > 0:
-                    # Use .at for scalar assignment of list values
-                    track_idx_val = track_rows.index[0]
-                    tracks.at[track_idx_val, "genres"] = genres
+            # Build index map for faster lookups (O(1) instead of O(n) per lookup)
+            # Create a mapping from track_id to DataFrame index
+            track_id_to_row_idx = {}
+            for idx, track_id in tracks['track_id'].items():
+                if track_id in inferred_genres_map:
+                    track_id_to_row_idx[track_id] = idx
             
-            # Save updated tracks
-            tracks.to_parquet(tracks_path, index=False)
+            # Batch update using .at for efficient single-cell updates
+            for track_id, genres in inferred_genres_map.items():
+                if track_id in track_id_to_row_idx:
+                    tracks.at[track_id_to_row_idx[track_id], "genres"] = genres
+            
+            # Save updated tracks (use pyarrow engine for faster writes if available)
+            try:
+                tracks.to_parquet(tracks_path, index=False, engine='pyarrow')
+            except Exception:
+                tracks.to_parquet(tracks_path, index=False)
         
         # Count tracks with valid genres (avoiding pandas array ambiguity)
         def has_valid_genre(g):
@@ -1031,8 +1479,12 @@ def sync_full_library() -> bool:
             log(f"   • {existing_status.get('tracks_count', 0):,} unique tracks")
             log(f"   • {existing_status.get('artists_count', 0):,} artists")
             log("🔄 Running incremental sync (only changed playlists)...")
+            verbose_log(f"Cache directory: {DATA_DIR}")
+            verbose_log(f"API cache directory: {api_cache_dir}")
         else:
             log("📭 No cached data found - running full sync...")
+            verbose_log(f"Cache directory: {DATA_DIR}")
+            verbose_log(f"API cache directory: {api_cache_dir}")
         
         # Sync library (incremental - only fetches changes based on snapshot_id)
         # Note: We use owned_only=True for playlist_tracks to avoid syncing all followed playlist contents,
@@ -1055,43 +1507,62 @@ def sync_full_library() -> bool:
         if stats.get("playlists_updated", 0) > 0 or stats.get("tracks_added", 0) > 0:
             with timed_step("Regenerate Derived Tables"):
                 log("🔧 Regenerating derived tables...")
+                verbose_log(f"Stats: {stats}")
+                verbose_log("Loading tracks table...")
                 _ = sf.tracks()
+                verbose_log("Loading artists table...")
                 _ = sf.artists()
+                verbose_log("Loading library_wide table...")
                 _ = sf.library_wide()
                 log("✅ All parquet files updated")
         else:
             log("✅ No changes detected - using cached derived tables")
+            verbose_log(f"Stats: {stats}")
         
         # Compute track genres with smart caching - only processes changed tracks
         # This dramatically improves sync runtime by avoiding unnecessary computation
         # Skip entirely if all tracks already have genres (common case after initial sync)
-        with timed_step("Genre Inference Check"):
-            try:
-                tracks_check = pd.read_parquet(DATA_DIR / "tracks.parquet")
-                tracks_needing = tracks_check[tracks_check["genres"].apply(
-                    lambda g: g is None or (isinstance(g, list) and len(g) == 0) or 
-                    (pd.api.types.is_scalar(g) and pd.isna(g))
-                )]
-                if len(tracks_needing) == 0:
-                    log("  ⏭️  Skipping genre inference (all tracks already have genres)")
-                else:
-                    # Check if genre inference is enabled and within limits
-                    max_tracks_for_inference = int(os.environ.get("MAX_TRACKS_FOR_INFERENCE", "10000"))
-                    enable_inference = _parse_bool_env("ENABLE_GENRE_INFERENCE", True)
+        # Only run genre inference if there were actual changes or tracks need inference
+        # Skip if no tracks were added/updated (fast path optimization)
+        if stats and stats.get("tracks_added", 0) == 0 and stats.get("playlists_updated", 0) == 0:
+            log("  ⏭️  Skipping genre inference (no changes detected - using cached data)")
+        else:
+            with timed_step("Genre Inference Check"):
+                try:
+                    # Use faster parquet read with pyarrow if available
+                    try:
+                        verbose_log(f"Loading tracks.parquet with pyarrow engine...")
+                        tracks_check = pd.read_parquet(DATA_DIR / "tracks.parquet", engine='pyarrow')
+                        verbose_log(f"Loaded {len(tracks_check):,} tracks using pyarrow")
+                    except Exception:
+                        verbose_log(f"Loading tracks.parquet with default engine (pyarrow not available)...")
+                        tracks_check = pd.read_parquet(DATA_DIR / "tracks.parquet")
+                        verbose_log(f"Loaded {len(tracks_check):,} tracks using default engine")
                     
-                    if not enable_inference:
-                        log(f"  ⏭️  Skipping genre inference (disabled via ENABLE_GENRE_INFERENCE)")
-                    elif len(tracks_needing) > max_tracks_for_inference:
-                        log(f"  ⏭️  Skipping genre inference ({len(tracks_needing):,} tracks need inference - exceeds limit of {max_tracks_for_inference:,})")
-                        log(f"      Set MAX_TRACKS_FOR_INFERENCE env var to increase limit")
+                    tracks_needing = tracks_check[tracks_check["genres"].apply(
+                        lambda g: g is None or (isinstance(g, list) and len(g) == 0) or 
+                        (pd.api.types.is_scalar(g) and pd.isna(g))
+                    )]
+                    if len(tracks_needing) == 0:
+                        log("  ⏭️  Skipping genre inference (all tracks already have genres)")
                     else:
-                        # Process genre inference
-                        with timed_step("Genre Inference Processing"):
-                            log(f"  🔄 Processing genre inference for {len(tracks_needing):,} tracks...")
-                            compute_track_genres_incremental(stats)
-            except Exception as e:
-                # If check fails, skip to avoid blocking
-                log(f"  ⏭️  Skipping genre inference (error: {e})")
+                        # Check if genre inference is enabled and within limits
+                        max_tracks_for_inference = int(os.environ.get("MAX_TRACKS_FOR_INFERENCE", "10000"))
+                        enable_inference = _parse_bool_env("ENABLE_GENRE_INFERENCE", True)
+                        
+                        if not enable_inference:
+                            log(f"  ⏭️  Skipping genre inference (disabled via ENABLE_GENRE_INFERENCE)")
+                        elif len(tracks_needing) > max_tracks_for_inference:
+                            log(f"  ⏭️  Skipping genre inference ({len(tracks_needing):,} tracks need inference - exceeds limit of {max_tracks_for_inference:,})")
+                            log(f"      Set MAX_TRACKS_FOR_INFERENCE env var to increase limit")
+                        else:
+                            # Process genre inference
+                            with timed_step("Genre Inference Processing"):
+                                log(f"  🔄 Processing genre inference for {len(tracks_needing):,} tracks...")
+                                compute_track_genres_incremental(stats)
+                except Exception as e:
+                    # If check fails, skip to avoid blocking
+                    log(f"  ⏭️  Skipping genre inference (error: {e})")
         
         # Sync export data (Account Data, Extended History, Technical Logs)
         # Wrap in try-except to prevent export data sync from stopping the script
@@ -1532,8 +2003,12 @@ def update_monthly_playlists(sp: spotipy.Spotify, keep_last_n_months: int = 3) -
                     if pid in _playlist_tracks_cache:
                         del _playlist_tracks_cache[pid]
                     log(f"  {name}: +{len(to_add)} tracks ({len(track_uris)} total)")
+                    # Update description with genre tags
+                    _update_playlist_description_with_genres(sp, user_id, pid, track_uris)
                 else:
                     log(f"  {name}: up to date ({len(track_uris)} tracks)")
+                    # Still update genre tags even if no new tracks (genres might have changed in data)
+                    _update_playlist_description_with_genres(sp, user_id, pid, track_uris)
             else:
                 # Calculate last date of the month for creation date reference
                 from calendar import monthrange
@@ -1542,6 +2017,7 @@ def update_monthly_playlists(sp: spotipy.Spotify, keep_last_n_months: int = 3) -
                 created_at = datetime(year, month_num, last_day, 23, 59, 59)
                 
                 # Create playlist
+                verbose_log(f"Creating new playlist '{name}' for {month} (type={playlist_type})...")
                 pl = api_call(
                     sp.user_playlist_create,
                     user_id,
@@ -1550,12 +2026,21 @@ def update_monthly_playlists(sp: spotipy.Spotify, keep_last_n_months: int = 3) -
                     description=format_playlist_description(description, period=month, playlist_type=playlist_type),
                 )
                 pid = pl["id"]
+                verbose_log(f"  Created playlist '{name}' with id {pid}")
                 
                 # Add tracks
+                verbose_log(f"  Adding {len(track_uris)} tracks in chunks...")
+                chunk_count = 0
                 for chunk in _chunked(track_uris, 50):
+                    chunk_count += 1
+                    verbose_log(f"    Adding chunk {chunk_count} ({len(chunk)} tracks)...")
                     api_call(sp.playlist_add_items, pid, chunk)
                 
+                # Update description with genre tags
+                _update_playlist_description_with_genres(sp, user_id, pid, track_uris)
+                
                 _invalidate_playlist_cache()
+                verbose_log(f"  Invalidated playlist cache after creating new playlist")
                 log(f"  {name}: created with {len(track_uris)} tracks")
     
     return month_to_tracks
@@ -1822,8 +2307,12 @@ def create_or_update_playlist(
             if pid in _playlist_tracks_cache:
                 del _playlist_tracks_cache[pid]
             log(f"  {playlist_name}: +{len(to_add)} tracks (total: {len(track_uris)})")
+            # Update description with genre tags
+            _update_playlist_description_with_genres(sp, user_id, pid, track_uris)
         else:
             log(f"  {playlist_name}: up to date ({len(track_uris)} tracks)")
+            # Still update genre tags even if no new tracks
+            _update_playlist_description_with_genres(sp, user_id, pid, track_uris)
         return pid
     else:
         # Calculate period end date (for reference, Spotify API doesn't support setting it)
@@ -1854,6 +2343,9 @@ def create_or_update_playlist(
         # Add tracks
         for chunk in _chunked(track_uris, 50):
             api_call(sp.playlist_add_items, pid, chunk)
+        
+        # Update description with genre tags
+        _update_playlist_description_with_genres(sp, user_id, pid, track_uris)
         
         # Invalidate cache
         _invalidate_playlist_cache()
@@ -2301,8 +2793,12 @@ def consolidate_old_monthly_playlists(sp: spotipy.Spotify, keep_last_n_months: i
                     for chunk in _chunked(to_add, 50):
                         api_call(sp.playlist_add_items, pid, chunk)
                     log(f"  {playlist_name}: +{len(to_add)} tracks (total: {len(filtered_tracks)}; manually added tracks preserved)")
+                    # Update description with genre tags (use all tracks in playlist)
+                    _update_playlist_description_with_genres(sp, user_id, pid, None)
                 else:
                     log(f"  {playlist_name}: already up to date ({len(filtered_tracks)} tracks)")
+                    # Still update genre tags even if no new tracks
+                    _update_playlist_description_with_genres(sp, user_id, pid, None)
             else:
                 # Calculate last date of the year for creation date reference
                 # Note: Spotify API doesn't support setting creation date directly
@@ -2324,6 +2820,8 @@ def consolidate_old_monthly_playlists(sp: spotipy.Spotify, keep_last_n_months: i
                 
                 for chunk in _chunked(filtered_tracks, 50):
                     api_call(sp.playlist_add_items, pid, chunk)
+                # Update description with genre tags
+                _update_playlist_description_with_genres(sp, user_id, pid, filtered_tracks)
                 log(f"  {playlist_name}: created with {len(filtered_tracks)} tracks")
         
             # Delete old monthly playlists if they existed
@@ -2472,12 +2970,19 @@ def update_genre_split_playlists(sp: spotipy.Spotify, month_to_tracks: dict) -> 
                 to_add = [u for u in genre_uris if u not in already]
 
                 if to_add:
+                    verbose_log(f"Adding {len(to_add)} tracks to playlist '{name}' (playlist_id={pid})")
+                    chunk_count = 0
                     for chunk in _chunked(to_add, 50):
+                        chunk_count += 1
+                        verbose_log(f"  Adding chunk {chunk_count} ({len(chunk)} tracks)...")
                         api_call(sp.playlist_add_items, pid, chunk)
                     # Invalidate cache for this playlist since we added tracks
                     if pid in _playlist_tracks_cache:
                         del _playlist_tracks_cache[pid]
+                        verbose_log(f"  Invalidated cache for playlist {pid}")
                     log(f"  {name}: +{len(to_add)} tracks (manually added tracks preserved)")
+                    # Update description with genre tags (use all tracks in playlist)
+                    _update_playlist_description_with_genres(sp, user_id, pid, None)
             else:
                 pl = api_call(
                     sp.user_playlist_create,
@@ -2490,6 +2995,8 @@ def update_genre_split_playlists(sp: spotipy.Spotify, month_to_tracks: dict) -> 
 
                 for chunk in _chunked(genre_uris, 50):
                     api_call(sp.playlist_add_items, pid, chunk)
+                # Update description with genre tags
+                _update_playlist_description_with_genres(sp, user_id, pid, genre_uris)
                 # Invalidate playlist cache since we created a new playlist
                 _invalidate_playlist_cache()
                 log(f"  {name}: created with {len(genre_uris)} tracks")
@@ -2590,7 +3097,10 @@ def update_master_genre_playlists(sp: spotipy.Spotify) -> None:
                 if pid in _playlist_tracks_cache:
                     del _playlist_tracks_cache[pid]
                 log(f"  {name}: +{len(to_add)} tracks (manually added tracks preserved)")
+                # Update description with genre tags (use all tracks in playlist)
+                _update_playlist_description_with_genres(sp, user_id, pid, None)
         else:
+            verbose_log(f"Creating new playlist '{name}' for genre '{genre}'...")
             pl = api_call(
                 sp.user_playlist_create,
                 user_id,
@@ -2599,9 +3109,15 @@ def update_master_genre_playlists(sp: spotipy.Spotify) -> None:
                 description=format_playlist_description("All liked songs", genre=genre, playlist_type="genre_master"),
             )
             pid = pl["id"]
+            verbose_log(f"  Created playlist '{name}' with id {pid}, adding {len(uris)} tracks...")
 
+            chunk_count = 0
             for chunk in _chunked(uris, 50):
+                chunk_count += 1
+                verbose_log(f"  Adding chunk {chunk_count} ({len(chunk)} tracks) to new playlist...")
                 api_call(sp.playlist_add_items, pid, chunk)
+            # Update description with genre tags
+            _update_playlist_description_with_genres(sp, user_id, pid, uris)
             # Invalidate playlist cache since we created a new playlist
             _invalidate_playlist_cache()
             log(f"  {name}: created with {len(uris)} tracks")
@@ -2712,6 +3228,8 @@ Examples:
     python scripts/spotify_sync.py --skip-sync  # Update only (fast)
     python scripts/spotify_sync.py --sync-only  # Sync only, no playlist changes
     python scripts/spotify_sync.py --all-months # Process all months
+    python scripts/spotify_sync.py --verbose    # Enable detailed logging
+    python scripts/spotify_sync.py -v --skip-sync  # Verbose mode + skip sync
         """
     )
     parser.add_argument(
@@ -2726,7 +3244,17 @@ Examples:
         "--all-months", action="store_true",
         help="Process all months (deprecated: now uses last 3 months by default)"
     )
+    parser.add_argument(
+        "--verbose", "-v", action="store_true",
+        help="Enable verbose logging for detailed debugging information"
+    )
     args = parser.parse_args()
+    
+    # Set global verbose flag
+    global _verbose
+    _verbose = args.verbose
+    if _verbose:
+        verbose_log("Verbose logging enabled - detailed output will be shown")
     
     log("=" * 60)
     log("Spotify Sync & Playlist Update")
@@ -2736,27 +3264,42 @@ Examples:
     error = None
     summary = {}
     
-    # Authenticate
+        # Authenticate
     try:
+        verbose_log("Initializing Spotify client...")
         sp = get_spotify_client()
+        verbose_log("Fetching user info...")
         user = get_user_info(sp)
         log(f"Authenticated as: {user['display_name']} ({user['id']})")
+        verbose_log(f"User details: email={user.get('email', 'N/A')}, followers={user.get('followers', {}).get('total', 'N/A')}, product={user.get('product', 'N/A')}")
     except Exception as e:
         log(f"ERROR: Authentication failed: {e}")
+        verbose_log(f"Authentication error details: {type(e).__name__}: {str(e)}")
+        if _verbose:
+            import traceback
+            verbose_log(f"Traceback:\n{traceback.format_exc()}")
         error = e
         _send_email_notification(False, error=error)
         sys.exit(1)
     
     try:
+        verbose_log(f"Configuration: skip_sync={args.skip_sync}, sync_only={args.sync_only}, all_months={args.all_months}")
+        verbose_log(f"Environment: KEEP_MONTHLY_MONTHS={KEEP_MONTHLY_MONTHS}, OWNER_NAME={OWNER_NAME}, BASE_PREFIX={BASE_PREFIX}")
+        
         # Data sync phase
         if not args.skip_sync:
+            verbose_log("Starting full library sync phase...")
             with timed_step("Full Library Sync"):
                 # Full library sync using spotim8 (includes liked songs and artists)
                 sync_success = sync_full_library()
                 summary["sync_completed"] = "Yes" if sync_success else "No"
+                verbose_log(f"Sync completed: success={sync_success}")
+        else:
+            verbose_log("Skipping data sync (--skip-sync flag set)")
         
         # Playlist update phase
         if not args.sync_only:
+            verbose_log("Starting playlist update phase...")
             with timed_step("Rename Playlists with Old Prefixes"):
                 # Rename playlists with old prefixes (runs first, before other updates)
                 rename_playlists_with_old_prefixes(sp)

@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2025-01-XX
+
+### 🎉 Major Release: Project Reorganization & Structure Improvements
+
+### Changed
+
+#### Project Structure Reorganization
+- **Scripts Reorganized** - All scripts now organized into logical subdirectories:
+  - `scripts/automation/` - Sync, cron, and automation scripts
+  - `scripts/playlist/` - Playlist management and manipulation scripts
+  - `scripts/utils/` - Utility and setup scripts
+- **Improved Organization** - Better separation of concerns and easier navigation
+- **Updated Path References** - All documentation and scripts updated to reflect new structure
+
+#### Script Organization
+- **Automation Scripts** (`scripts/automation/`):
+  - `sync.py` - Main sync & playlist update script
+  - `runner.py` - Local sync runner wrapper
+  - `cron_wrapper.sh` - Robust cron wrapper
+  - `cron.sh` - Cron job setup helper
+  - `check_cron.sh` - Cron diagnostic tool
+  - `email_notify.py` - Email notification service
+- **Playlist Scripts** (`scripts/playlist/`):
+  - `merge_playlists.py` - Merge two playlists
+  - `merge_multiple_playlists.py` - Merge multiple playlists
+  - `merge_to_new_playlist.py` - Merge to new playlist
+  - `delete_playlists.py` - Delete playlists
+  - `add_genre_tags_to_descriptions.py` - Add genre tags to descriptions
+  - `update_all_playlist_descriptions.py` - Update all playlist descriptions
+  - `playlist_helpers.py` - Shared playlist utilities
+- **Utility Scripts** (`scripts/utils/`):
+  - `get_token.py` - Get refresh token for automation
+  - `setup.py` - Initial setup helper
+
+### Removed
+
+- **Test Notebooks** - Removed `06_identify_redundant_playlists_test.ipynb` (test file)
+
+### Fixed
+
+- **Path References** - Updated all script paths in documentation and helper scripts
+- **Cron Scripts** - Fixed path references in cron wrapper and setup scripts
+- **Dynamic Path Resolution** - Improved path resolution in shell scripts for better portability
+
+### Documentation
+
+- **Updated README** - All script paths updated to reflect new organization
+- **Project Structure** - Updated project structure documentation with new organization
+- **Migration Guide** - Script paths updated throughout documentation
+
 ## [2.0.0] - 2025-01-XX
 
 ### 🎉 Major Release: Streaming History Integration & Enhanced Playlist Management

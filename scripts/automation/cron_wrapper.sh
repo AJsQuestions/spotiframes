@@ -9,7 +9,7 @@ set -u  # Fail on undefined variables (safer than set -e)
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Set up PATH for macOS cron (cron has minimal PATH)
 export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
@@ -93,7 +93,7 @@ if [ ! -f "$PROJECT_ROOT/.env" ]; then
     exit 1
 fi
 
-SYNC_SCRIPT="$PROJECT_ROOT/scripts/sync.py"
+SYNC_SCRIPT="$PROJECT_ROOT/scripts/automation/sync.py"
 
 # Verify the sync script exists
 if [ ! -f "$SYNC_SCRIPT" ]; then
@@ -126,7 +126,7 @@ fi
 # Run the sync script via runner.py (ensures proper venv and environment)
 # Note: Using direct execution instead of timeout wrapper for better reliability
 # The sync script has its own retry logic and should complete within reasonable time
-RUNNER_SCRIPT="$PROJECT_ROOT/scripts/runner.py"
+RUNNER_SCRIPT="$PROJECT_ROOT/scripts/automation/runner.py"
 if [ -f "$RUNNER_SCRIPT" ]; then
     log_msg "Running sync via runner.py..."
     python "$RUNNER_SCRIPT" >> "$LOG_FILE" 2>&1

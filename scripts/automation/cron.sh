@@ -13,7 +13,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-SYNC_SCRIPT="$PROJECT_ROOT/scripts/runner.py"
+SYNC_SCRIPT="$PROJECT_ROOT/scripts/automation/runner.py"
 LOG_DIR="$PROJECT_ROOT/logs"
 
 # Verify the sync script exists
@@ -31,7 +31,7 @@ mkdir -p "$LOG_DIR"
 # Cron schedule: Run daily at 2am
 CRON_SCHEDULE="0 2 * * *"
 # Use the wrapper script which handles environment setup properly
-WRAPPER_SCRIPT="$PROJECT_ROOT/scripts/cron_wrapper.sh"
+WRAPPER_SCRIPT="$PROJECT_ROOT/scripts/automation/cron_wrapper.sh"
 if [ ! -f "$WRAPPER_SCRIPT" ]; then
     echo "ERROR: Cron wrapper script not found at $WRAPPER_SCRIPT"
     exit 1

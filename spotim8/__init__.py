@@ -61,7 +61,7 @@ from .streaming_history import (
     load_webapi_events_cached,
 )
 
-__version__ = "2.0.0"
+__version__ = "3.0.0"
 
 __all__ = [
     # Main client

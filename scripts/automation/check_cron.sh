@@ -18,8 +18,12 @@ echo "📋 Configured cron jobs:"
 crontab -l | grep -v "^#" | grep -v "^$" || echo "  (none found)"
 echo ""
 
+# Get project root dynamically
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
 # Check wrapper script
-WRAPPER="/Users/aryamaan/Desktop/Projects/spotim8/scripts/cron_wrapper.sh"
+WRAPPER="$PROJECT_ROOT/scripts/automation/cron_wrapper.sh"
 if [ -f "$WRAPPER" ]; then
     echo "✅ Wrapper script exists: $WRAPPER"
     if [ -x "$WRAPPER" ]; then
@@ -35,7 +39,7 @@ fi
 echo ""
 
 # Check log file
-LOG_FILE="/Users/aryamaan/Desktop/Projects/spotim8/logs/sync.log"
+LOG_FILE="$PROJECT_ROOT/logs/sync.log"
 if [ -f "$LOG_FILE" ]; then
     echo "✅ Log file exists: $LOG_FILE"
     LAST_RUN=$(tail -1 "$LOG_FILE" | grep -oE "[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}" | tail -1)
@@ -51,7 +55,7 @@ fi
 echo ""
 
 # Check lock file
-LOCK_FILE="/Users/aryamaan/Desktop/Projects/spotim8/logs/sync.lock"
+LOCK_FILE="$PROJECT_ROOT/logs/sync.lock"
 if [ -f "$LOCK_FILE" ]; then
     PID=$(cat "$LOCK_FILE" 2>/dev/null)
     if kill -0 "$PID" 2>/dev/null; then
@@ -78,7 +82,7 @@ echo ""
 
 # Test wrapper script
 echo "🧪 Testing wrapper script..."
-cd /Users/aryamaan/Desktop/Projects/spotim8
+cd "$PROJECT_ROOT"
 if /bin/bash "$WRAPPER" --skip-sync > /dev/null 2>&1; then
     echo "✅ Wrapper script test: SUCCESS"
 else
