@@ -48,12 +48,10 @@ def test_import_ratelimit():
     """Test importing rate limiting utilities."""
     from spotim8.ratelimit import (
         rate_limited_call,
-        RateLimiter,
         RateLimitError,
         DEFAULT_REQUEST_DELAY,
     )
     assert rate_limited_call is not None
-    assert RateLimiter is not None
     assert RateLimitError is not None
     assert DEFAULT_REQUEST_DELAY > 0
 

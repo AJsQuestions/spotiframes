@@ -6,9 +6,3 @@ T = TypeVar("T")
 def chunks(xs: list[T], n: int) -> Iterator[list[T]]:
     for i in range(0, len(xs), n):
         yield xs[i:i+n]
-
-def coalesce(*vals):
-    for v in vals:
-        if v is not None:
-            return v
-    return None

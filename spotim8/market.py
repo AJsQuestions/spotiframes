@@ -4,17 +4,15 @@ Market data interface for Spotify browse, search, and recommendations.
 
 from __future__ import annotations
 
-from io import StringIO
-from typing import Optional, Dict, List, Callable
+from typing import Optional, Callable
 
 import pandas as pd
-import requests
 
 from .ratelimit import rate_limited_call, DEFAULT_REQUEST_DELAY
 
 
 class MarketFrames:
-    """Market / population-ish signals built from Spotify browse + search + recommendations + charts ingestion."""
+    """Market / population-ish signals built from Spotify browse + search."""
 
     def __init__(self, sp, progress=None, request_delay: float = DEFAULT_REQUEST_DELAY):
         self.sp = sp
@@ -144,119 +142,3 @@ class MarketFrames:
                 break
         return pd.DataFrame(out)
 
-    # ------------------ Recommendations ------------------
-    def recommendations(
-        self,
-        seed_tracks: Optional[List[str]] = None,
-        seed_artists: Optional[List[str]] = None,
-        seed_genres: Optional[List[str]] = None,
-        target: Optional[Dict[str, float]] = None,
-        limit: int = 100,
-        market: str = "US",
-    ) -> pd.DataFrame:
-        seed_tracks = (seed_tracks or [])[:5]
-        seed_artists = (seed_artists or [])[:5]
-        seed_genres = (seed_genres or [])[:5]
-        target = target or {}
-
-        resp = self._rate_limited(
-            self.sp.recommendations,
-            seed_tracks=seed_tracks or None,
-            seed_artists=seed_artists or None,
-            seed_genres=seed_genres or None,
-            limit=min(100, limit),
-            market=market,
-            **{f"target_{k}": v for k, v in target.items()},
-        )
-        rows = []
-        for t in resp.get("tracks", []):
-            album = t.get("album") or {}
-            rows.append({
-                "track_id": t.get("id"),
-                "track_name": t.get("name"),
-                "popularity": t.get("popularity"),
-                "duration_ms": t.get("duration_ms"),
-                "explicit": t.get("explicit"),
-                "album_id": album.get("id"),
-                "album_name": album.get("name"),
-                "release_date": album.get("release_date"),
-                "artist_ids": [a.get("id") for a in t.get("artists", [])],
-                "artists": [a.get("name") for a in t.get("artists", [])],
-                "uri": t.get("uri"),
-                "seed_tracks": seed_tracks,
-                "seed_artists": seed_artists,
-                "seed_genres": seed_genres,
-                "target": target,
-                "market": market,
-            })
-        return pd.DataFrame(rows)
-
-    # ------------------ Charts ingestion ------------------
-    def charts_top200_from_csv(self, path: str) -> pd.DataFrame:
-        """Ingest a chart CSV into a standard schema.
-
-        Expected columns vary by source; we attempt to infer:
-        - position/rank
-        - track name
-        - artist
-        - streams
-        - url/uri
-        - date/region if present
-        """
-        df = pd.read_csv(path)
-        cols = {c.lower().strip(): c for c in df.columns}
-        # Common column patterns
-        rank_col = cols.get("position") or cols.get("rank")
-        track_col = cols.get("track name") or cols.get("track") or cols.get("title")
-        artist_col = cols.get("artist") or cols.get("artist name")
-        streams_col = cols.get("streams")
-        url_col = cols.get("url") or cols.get("spotify url") or cols.get("uri")
-
-        out = pd.DataFrame({
-            "rank": df[rank_col] if rank_col else None,
-            "track_name": df[track_col] if track_col else None,
-            "artist_name": df[artist_col] if artist_col else None,
-            "streams": df[streams_col] if streams_col else None,
-            "url_or_uri": df[url_col] if url_col else None,
-        })
-        # Keep other metadata if exists
-        for extra in ["date", "region", "chart", "trend", "peak rank", "weeks on chart"]:
-            if extra in cols:
-                out[extra.replace(" ", "_")] = df[cols[extra]]
-        return out
-
-    def charts_top200_best_effort_fetch(self, url: str, timeout: int = 20) -> pd.DataFrame:
-        """Best-effort fetch for charts CSV/TSV from a URL. Use responsibly.
-
-        If you have a local CSV, prefer charts_top200_from_csv.
-        """
-        r = requests.get(url, timeout=timeout)
-        r.raise_for_status()
-        # Try CSV first, fallback to TSV
-        content = r.text
-        sep = "," if content.count(",") >= content.count("\t") else "\t"
-        df = pd.read_csv(StringIO(content), sep=sep)
-        # Save normalized
-        return self.charts_top200_from_dataframe(df)
-
-    def charts_top200_from_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
-        # helper for fetched charts
-        tmp_path = None
-        # reuse inference by writing to csv in memory
-        cols = {c.lower().strip(): c for c in df.columns}
-        rank_col = cols.get("position") or cols.get("rank")
-        track_col = cols.get("track name") or cols.get("track") or cols.get("title")
-        artist_col = cols.get("artist") or cols.get("artist name")
-        streams_col = cols.get("streams")
-        url_col = cols.get("url") or cols.get("spotify url") or cols.get("uri")
-        out = pd.DataFrame({
-            "rank": df[rank_col] if rank_col else None,
-            "track_name": df[track_col] if track_col else None,
-            "artist_name": df[artist_col] if artist_col else None,
-            "streams": df[streams_col] if streams_col else None,
-            "url_or_uri": df[url_col] if url_col else None,
-        })
-        for extra in ["date", "region", "chart", "trend", "peak rank", "weeks on chart"]:
-            if extra in cols:
-                out[extra.replace(" ", "_")] = df[cols[extra]]
-        return out

@@ -147,31 +147,3 @@ def _calculate_wait_time(error: SpotifyException, attempt: int) -> float:
     return min(wait_time, MAX_WAIT_TIME)
 
 
-class RateLimiter:
-    """
-    A rate limiter that can be used as a method wrapper.
-    
-    Usage:
-        limiter = RateLimiter(delay=0.5)
-        result = limiter.call(spotify.current_user_playlists, limit=50)
-    """
-    
-    def __init__(
-        self,
-        delay: float = DEFAULT_REQUEST_DELAY,
-        max_retries: int = MAX_RETRIES,
-        verbose: bool = True,
-    ):
-        self.delay = delay
-        self.max_retries = max_retries
-        self.verbose = verbose
-    
-    def call(self, func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
-        """Execute a rate-limited call."""
-        return rate_limited_call(
-            func, *args,
-            delay=self.delay,
-            max_retries=self.max_retries,
-            verbose=self.verbose,
-            **kwargs
-        )

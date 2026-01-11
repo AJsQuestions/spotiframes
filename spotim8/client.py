@@ -568,25 +568,6 @@ class Spotim8:
         df = pd.DataFrame(rows).drop_duplicates("artist_id")
         return self.catalog.save(key, df)
 
-    def audio_features(self, force: bool = False) -> pd.DataFrame:
-        """
-        DEPRECATED: Spotify removed the audio features endpoint in November 2024.
-        
-        This method now returns an empty DataFrame for backwards compatibility.
-        New apps created after Nov 2024 cannot access audio features.
-        """
-        warnings.warn(
-            "Spotify deprecated audio features API in November 2024. "
-            "This method returns an empty DataFrame.",
-            DeprecationWarning,
-            stacklevel=2
-        )
-        return pd.DataFrame(columns=[
-            "track_id", "danceability", "energy", "valence", "tempo", "loudness",
-            "acousticness", "instrumentalness", "liveness", "speechiness",
-            "key", "mode", "time_signature", "duration_ms"
-        ])
-
     def library_wide(self, force: bool = False, owned_only: bool = True) -> pd.DataFrame:
         """Build a wide table joining playlists, tracks, and artists.
         
