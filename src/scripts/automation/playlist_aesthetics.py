@@ -163,22 +163,27 @@ def format_rich_description(
     # Combine sections
     description = "\n".join(sections)
     
-    # Truncate if needed
+    # Truncate if needed (Spotify limit is 300 characters)
     if len(description) > MAX_LENGTH:
         # Try to preserve base description and stats, truncate genre tags
         if genre_tags and len(genre_tags) > 50:
-            base_len = len("\n".join(sections[:-1]))
-            available = MAX_LENGTH - base_len - 10
+            base_sections = sections[:-1] if genre_tags == sections[-1] else sections
+            base_len = len("\n".join(base_sections))
+            available = MAX_LENGTH - base_len - 10  # Reserve space for newline and ellipsis
             if available > 20:
                 # Truncate genre tags
                 truncated_genres = genre_tags[:available] + "..."
-                description = "\n".join(sections[:-1]) + "\n" + truncated_genres
+                description = "\n".join(base_sections) + "\n" + truncated_genres
             else:
                 # Remove genre tags if no space
-                description = "\n".join(sections[:-1])
+                description = "\n".join(base_sections)
         else:
             # Truncate from end
             description = description[:MAX_LENGTH - 3] + "..."
+    
+    # Final safety check - ensure we never exceed limit
+    if len(description) > MAX_LENGTH:
+        description = description[:MAX_LENGTH]
     
     return description
 
