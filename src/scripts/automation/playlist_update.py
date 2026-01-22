@@ -36,7 +36,7 @@ def update_monthly_playlists(sp: spotipy.Spotify, keep_last_n_months: int = 3) -
     # Late imports from sync.py
     from .sync import (
         log, verbose_log, DATA_DIR, ENABLE_MONTHLY, ENABLE_MOST_PLAYED, ENABLE_DISCOVERY,
-        LIKED_SONGS_PLAYLIST_ID, get_existing_playlists, get_user_info, get_playlist_tracks, api_call,
+        LIKED_SONGS_PLAYLIST_ID, MONTHLY_NAME_TEMPLATE, get_existing_playlists, get_user_info, get_playlist_tracks, api_call,
         _chunked, _update_playlist_description_with_genres, _playlist_tracks_cache
     )
     log(f"\n--- Monthly Playlists (Last {keep_last_n_months} Months Only) ---")
