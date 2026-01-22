@@ -2247,6 +2247,32 @@ Examples:
                         print_organization_report(report)
                     except Exception as e:
                         verbose_log(f"  Health check failed (non-fatal): {e}")
+            
+            # Optional: Generate insights report if enabled
+            if _parse_bool_env("ENABLE_INSIGHTS_REPORT", False):
+                with timed_step("Generating Insights Report"):
+                    try:
+                        from .playlist_intelligence import generate_listening_insights_report
+                        import pandas as pd
+                        
+                        playlists_df = pd.read_parquet(DATA_DIR / "playlists.parquet")
+                        playlist_tracks_df = pd.read_parquet(DATA_DIR / "playlist_tracks.parquet")
+                        tracks_df = pd.read_parquet(DATA_DIR / "tracks.parquet")
+                        
+                        streaming_history_df = None
+                        streaming_path = DATA_DIR / "streaming_history.parquet"
+                        if streaming_path.exists():
+                            streaming_history_df = pd.read_parquet(streaming_path)
+                        
+                        report = generate_listening_insights_report(
+                            playlists_df,
+                            playlist_tracks_df,
+                            tracks_df,
+                            streaming_history_df
+                        )
+                        log("\n" + report)
+                    except Exception as e:
+                        verbose_log(f"  Insights report failed (non-fatal): {e}")
         
         log("\n" + "=" * 60)
         log("✅ Complete!")

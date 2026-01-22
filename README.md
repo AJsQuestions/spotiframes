@@ -21,6 +21,9 @@ Turn your Spotify library into tidy DataFrames, analyze your listening habits, a
 - 🏥 **Health Checks** - Identify empty playlists, duplicates, and organizational issues
 - 🎨 **Playlist Organization** - Smart categorization and organization tools
 - 🛡️ **Production-Grade** - Robust error handling, logging, and monitoring
+- 🎨 **Creative Features** - Theme playlists, time capsules, smart mixing, and insights
+- 📊 **Listening Insights** - Comprehensive reports on your listening habits and patterns
+- 🔗 **Playlist Intelligence** - Similarity detection, merge suggestions, and health scores
 
 ## 📋 Requirements
 

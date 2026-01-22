@@ -7,7 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [4.0.0] - 2025-01-22
 
-### 🎉 Major Release: Production-Grade Features & Data Protection
+### 🎉 Major Release: Production-Grade Features & Creative Enhancements
+
+### 🎨 Creative Features (NEW)
+- **Theme-Based Playlists** - Generate playlists for workout, study, chill, party, roadtrip
+- **Time Capsule Playlists** - Create playlists from specific years
+- **"On This Day" Playlists** - See what you listened to on this date in previous years
+- **Smart Playlist Mixing** - Intelligently mix multiple playlists with different strategies
+- **Listening Insights Report** - Comprehensive reports with visual formatting
+- **Playlist Intelligence** - Similarity detection, merge suggestions, health scores
+- **Creative CLI** - Interactive command-line interface for creative features
 
 ### 🛡️ Data Protection (NEW)
 - **Automatic Backups** - All destructive operations create backups automatically
