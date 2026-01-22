@@ -2273,6 +2273,36 @@ Examples:
                         log("\n" + report)
                     except Exception as e:
                         verbose_log(f"  Insights report failed (non-fatal): {e}")
+            
+            # Optional: Generate genre discovery report if enabled
+            if _parse_bool_env("ENABLE_GENRE_DISCOVERY", False):
+                with timed_step("Genre Discovery Analysis"):
+                    try:
+                        from .genre_enhancement import generate_genre_discovery_report
+                        import pandas as pd
+                        
+                        tracks_df = pd.read_parquet(DATA_DIR / "tracks.parquet")
+                        track_artists_df = pd.read_parquet(DATA_DIR / "track_artists.parquet")
+                        artists_df = pd.read_parquet(DATA_DIR / "artists.parquet")
+                        playlist_tracks_df = pd.read_parquet(DATA_DIR / "playlist_tracks.parquet")
+                        playlists_df = pd.read_parquet(DATA_DIR / "playlists.parquet")
+                        
+                        streaming_history_df = None
+                        streaming_path = DATA_DIR / "streaming_history.parquet"
+                        if streaming_path.exists():
+                            streaming_history_df = pd.read_parquet(streaming_path)
+                        
+                        report = generate_genre_discovery_report(
+                            tracks_df,
+                            track_artists_df,
+                            artists_df,
+                            playlist_tracks_df,
+                            playlists_df,
+                            streaming_history_df
+                        )
+                        log("\n" + report)
+                    except Exception as e:
+                        verbose_log(f"  Genre discovery failed (non-fatal): {e}")
         
         log("\n" + "=" * 60)
         log("✅ Complete!")

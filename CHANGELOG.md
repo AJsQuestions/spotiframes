@@ -18,6 +18,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Playlist Intelligence** - Similarity detection, merge suggestions, health scores
 - **Creative CLI** - Interactive command-line interface for creative features
 
+### 🎵 Advanced Genre Classification (NEW)
+- **Multi-Dimensional Classification** - Uses collaborative filtering, playlist co-occurrence, artist networks, and temporal patterns
+- **Collaborative Filtering** - Infers genres from similar tracks (shared artists, same playlists)
+- **Playlist Co-occurrence** - Tracks appearing together frequently share genre signals
+- **Artist Network Analysis** - Uses collaboration patterns to infer genres
+- **Temporal Patterns** - Genre evolution over time based on release years
+- **Genre Discovery** - Discovers genre clusters, hybrids, and emerging trends
+- **Dynamic Learning** - Learns genre patterns from your library and playlists
+- **Hybrid Detection** - Identifies tracks that blend multiple genres
+- **Emerging Genres** - Tracks trending genres in your library over time
+
 ### 🛡️ Data Protection (NEW)
 - **Automatic Backups** - All destructive operations create backups automatically
 - **Verification Before Deletion** - Tracks verified in target before source deletion
