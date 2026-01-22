@@ -501,11 +501,23 @@ def update_master_genre_playlists(sp: spotipy.Spotify) -> None:
         for genre in genres_list:
             genre_counts[genre] += 1
     
+    # Log genre distribution for debugging
+    if verbose_log:
+        verbose_log(f"  Genre distribution: {dict(genre_counts.most_common(10))}")
+        verbose_log(f"  Total liked tracks: {len(liked_uris)}, tracks with genres: {len(uri_to_genres)}")
+    
     # Select top genres
     selected = [g for g, n in genre_counts.most_common(MAX_GENRE_PLAYLISTS) 
                 if n >= MIN_TRACKS_FOR_GENRE]
     
     log(f"  Found {len(selected)} genre(s) with >= {MIN_TRACKS_FOR_GENRE} tracks")
+    if selected:
+        for genre in selected:
+            count = genre_counts[genre]
+            log(f"    • {genre}: {count} tracks")
+    else:
+        verbose_log(f"  No genres meet the minimum threshold of {MIN_TRACKS_FOR_GENRE} tracks")
+        verbose_log(f"  Top genres: {dict(genre_counts.most_common(5))}")
     
     # Get existing playlists (cached)
     existing = get_existing_playlists(sp)
