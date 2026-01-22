@@ -10,7 +10,7 @@ Discovers new genre patterns from user's library:
 
 import pandas as pd
 import numpy as np
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Set, Tuple, Optional
 from collections import Counter, defaultdict
 from sklearn.cluster import KMeans
 from sklearn.feature_extraction.text import TfidfVectorizer
