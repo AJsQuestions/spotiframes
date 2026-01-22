@@ -15,10 +15,18 @@ except ImportError:
     DOTENV_AVAILABLE = False
 
 
-def _parse_bool_env(key: str, default: bool = True) -> bool:
-    """Parse boolean environment variable."""
-    value = os.environ.get(key, str(default)).lower()
-    return value in ("true", "1", "yes", "on")
+# Import centralized config helpers
+from src.scripts.common.config_helpers import (
+    parse_bool_env,
+    parse_int_env,
+    parse_str_env,
+    parse_list_env,
+    get_env_or_none,
+    require_env
+)
+
+# Alias for backward compatibility
+_parse_bool_env = parse_bool_env
 
 
 # Get project root (assumes this file is at src/scripts/automation/config.py)
@@ -37,26 +45,26 @@ if DOTENV_AVAILABLE:
 # BASIC CONFIGURATION
 # ============================================================================
 # Most commonly customized settings - users typically only change these
-OWNER_NAME = os.environ.get("PLAYLIST_OWNER_NAME", "AJ")
-BASE_PREFIX = os.environ.get("PLAYLIST_PREFIX", "Finds")
+OWNER_NAME = parse_str_env("PLAYLIST_OWNER_NAME", "AJ")
+BASE_PREFIX = parse_str_env("PLAYLIST_PREFIX", "Finds")
 
 # Playlist type enable/disable flags
 # Set to "false" in .env to disable specific playlist types
-ENABLE_MONTHLY = _parse_bool_env("PLAYLIST_ENABLE_MONTHLY", True)
-ENABLE_MOST_PLAYED = _parse_bool_env("PLAYLIST_ENABLE_MOST_PLAYED", True)
-ENABLE_DISCOVERY = _parse_bool_env("PLAYLIST_ENABLE_DISCOVERY", True)
+ENABLE_MONTHLY = parse_bool_env("PLAYLIST_ENABLE_MONTHLY", True)
+ENABLE_MOST_PLAYED = parse_bool_env("PLAYLIST_ENABLE_MOST_PLAYED", True)
+ENABLE_DISCOVERY = parse_bool_env("PLAYLIST_ENABLE_DISCOVERY", True)
 
 # Individual prefixes for different playlist types
 # Most users don't need to customize these - defaults work well
 # Only set if you want different prefixes for different playlist types
-PREFIX_MONTHLY = os.environ.get("PLAYLIST_PREFIX_MONTHLY", BASE_PREFIX)
-PREFIX_GENRE_MONTHLY = os.environ.get("PLAYLIST_PREFIX_GENRE_MONTHLY", BASE_PREFIX)
-PREFIX_YEARLY = os.environ.get("PLAYLIST_PREFIX_YEARLY", BASE_PREFIX)
-PREFIX_GENRE_MASTER = os.environ.get("PLAYLIST_PREFIX_GENRE_MASTER", "am")
-PREFIX_MOST_PLAYED = os.environ.get("PLAYLIST_PREFIX_MOST_PLAYED", "Top")
-PREFIX_TIME_BASED = os.environ.get("PLAYLIST_PREFIX_TIME_BASED", "Vibes")  # Deprecated: feature removed
-PREFIX_REPEAT = os.environ.get("PLAYLIST_PREFIX_REPEAT", "OnRepeat")  # Deprecated: feature removed
-PREFIX_DISCOVERY = os.environ.get("PLAYLIST_PREFIX_DISCOVERY", "Discovery")
+PREFIX_MONTHLY = parse_str_env("PLAYLIST_PREFIX_MONTHLY", BASE_PREFIX)
+PREFIX_GENRE_MONTHLY = parse_str_env("PLAYLIST_PREFIX_GENRE_MONTHLY", BASE_PREFIX)
+PREFIX_YEARLY = parse_str_env("PLAYLIST_PREFIX_YEARLY", BASE_PREFIX)
+PREFIX_GENRE_MASTER = parse_str_env("PLAYLIST_PREFIX_GENRE_MASTER", "am")
+PREFIX_MOST_PLAYED = parse_str_env("PLAYLIST_PREFIX_MOST_PLAYED", "Top")
+PREFIX_TIME_BASED = parse_str_env("PLAYLIST_PREFIX_TIME_BASED", "Vibes")  # Deprecated: feature removed
+PREFIX_REPEAT = parse_str_env("PLAYLIST_PREFIX_REPEAT", "OnRepeat")  # Deprecated: feature removed
+PREFIX_DISCOVERY = parse_str_env("PLAYLIST_PREFIX_DISCOVERY", "Discovery")
 
 # ============================================================================
 # PLAYLIST NAME TEMPLATES
@@ -64,39 +72,39 @@ PREFIX_DISCOVERY = os.environ.get("PLAYLIST_PREFIX_DISCOVERY", "Discovery")
 # Advanced customization - rarely changed, good defaults provided
 # Only customize if you need non-standard playlist naming
 
-MONTHLY_NAME_TEMPLATE = os.environ.get(
+MONTHLY_NAME_TEMPLATE = parse_str_env(
     "PLAYLIST_TEMPLATE_MONTHLY",
     "{owner}{prefix}{mon}{year}"
 )
-YEARLY_NAME_TEMPLATE = os.environ.get(
+YEARLY_NAME_TEMPLATE = parse_str_env(
     "PLAYLIST_TEMPLATE_YEARLY",
     "{owner}{prefix}{year}"
 )
-GENRE_MONTHLY_TEMPLATE = os.environ.get(
+GENRE_MONTHLY_TEMPLATE = parse_str_env(
     "PLAYLIST_TEMPLATE_GENRE_MONTHLY",
     "{genre}{prefix}{mon}{year}"
 )
-GENRE_YEARLY_TEMPLATE = os.environ.get(
+GENRE_YEARLY_TEMPLATE = parse_str_env(
     "PLAYLIST_TEMPLATE_GENRE_YEARLY",
     "{genre}{prefix}{year}"
 )
-GENRE_NAME_TEMPLATE = os.environ.get(
+GENRE_NAME_TEMPLATE = parse_str_env(
     "PLAYLIST_TEMPLATE_GENRE_MASTER",
     "{owner}{prefix}{genre}"
 )
-MOST_PLAYED_TEMPLATE = os.environ.get(
+MOST_PLAYED_TEMPLATE = parse_str_env(
     "PLAYLIST_TEMPLATE_MOST_PLAYED",
     "{owner}{prefix}{mon}{year}"
 )
-TIME_BASED_TEMPLATE = os.environ.get(
+TIME_BASED_TEMPLATE = parse_str_env(
     "PLAYLIST_TEMPLATE_TIME_BASED",
     "{owner}{prefix}{mon}{year}"
 )
-REPEAT_TEMPLATE = os.environ.get(
+REPEAT_TEMPLATE = parse_str_env(
     "PLAYLIST_TEMPLATE_REPEAT",
     "{owner}{prefix}{mon}{year}"
 )
-DISCOVERY_TEMPLATE = os.environ.get(
+DISCOVERY_TEMPLATE = parse_str_env(
     "PLAYLIST_TEMPLATE_DISCOVERY",
     "{owner}{prefix}{mon}{year}"
 )
@@ -105,19 +113,19 @@ DISCOVERY_TEMPLATE = os.environ.get(
 # PLAYLIST LIMITS AND RETENTION
 # ============================================================================
 
-MIN_TRACKS_FOR_GENRE = 20
-MAX_GENRE_PLAYLISTS = 19
-KEEP_MONTHLY_MONTHS = int(os.environ.get("KEEP_MONTHLY_MONTHS", "3"))
+MIN_TRACKS_FOR_GENRE = parse_int_env("MIN_TRACKS_FOR_GENRE", 20)
+MAX_GENRE_PLAYLISTS = parse_int_env("MAX_GENRE_PLAYLISTS", 19)
+KEEP_MONTHLY_MONTHS = parse_int_env("KEEP_MONTHLY_MONTHS", 3)
 
 # ============================================================================
 # FORMATTING OPTIONS
 # ============================================================================
 # Advanced formatting customization - most users don't need to change these
-DATE_FORMAT = os.environ.get("PLAYLIST_DATE_FORMAT", "short")  # Options: short, medium, long, numeric
-SEPARATOR_MONTH = os.environ.get("PLAYLIST_SEPARATOR_MONTH", "none")  # Options: none, space, dash, underscore
-SEPARATOR_PREFIX = os.environ.get("PLAYLIST_SEPARATOR_PREFIX", "none")  # Options: none, space, dash, underscore
-CAPITALIZATION = os.environ.get("PLAYLIST_CAPITALIZATION", "preserve")  # Options: title, upper, lower, preserve
-DESCRIPTION_TEMPLATE = os.environ.get(
+DATE_FORMAT = parse_str_env("PLAYLIST_DATE_FORMAT", "short")  # Options: short, medium, long, numeric
+SEPARATOR_MONTH = parse_str_env("PLAYLIST_SEPARATOR_MONTH", "none")  # Options: none, space, dash, underscore
+SEPARATOR_PREFIX = parse_str_env("PLAYLIST_SEPARATOR_PREFIX", "none")  # Options: none, space, dash, underscore
+CAPITALIZATION = parse_str_env("PLAYLIST_CAPITALIZATION", "preserve")  # Options: title, upper, lower, preserve
+DESCRIPTION_TEMPLATE = parse_str_env(
     "PLAYLIST_DESCRIPTION_TEMPLATE",
     "{description} from {period} (automatically updated; manual additions welcome)"
 )

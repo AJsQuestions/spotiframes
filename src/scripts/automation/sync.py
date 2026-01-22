@@ -178,25 +178,28 @@ except Exception:
 # CONFIGURATION - Set via environment variables
 # ============================================================================
 
-OWNER_NAME = os.environ.get("PLAYLIST_OWNER_NAME", "AJ")
+# Import config helpers
+from src.scripts.common.config_helpers import parse_str_env
+
+# Note: These are also defined in config.py - consider importing from there instead
+# Keeping here for backward compatibility during refactoring
+OWNER_NAME = parse_str_env("PLAYLIST_OWNER_NAME", "AJ")
 
 # Individual prefixes for different playlist types
 # If not set, falls back to PLAYLIST_PREFIX, then "Finds"
-BASE_PREFIX = os.environ.get("PLAYLIST_PREFIX", "Finds")
+BASE_PREFIX = parse_str_env("PLAYLIST_PREFIX", "Finds")
+
+# Import centralized config helpers (use from config module instead of duplicating)
+from src.scripts.common.config_helpers import parse_bool_env
 
 # Playlist type enable/disable flags (from .env)
-def _parse_bool_env(key: str, default: bool = True) -> bool:
-    """Parse boolean environment variable."""
-    value = os.environ.get(key, str(default)).lower()
-    return value in ("true", "1", "yes", "on")
-
-ENABLE_MONTHLY = _parse_bool_env("PLAYLIST_ENABLE_MONTHLY", True)
-ENABLE_MOST_PLAYED = _parse_bool_env("PLAYLIST_ENABLE_MOST_PLAYED", True)
+# Note: These are also defined in config.py, but we keep them here for backward compatibility
+# TODO: Remove these and import from config.py instead
+ENABLE_MONTHLY = parse_bool_env("PLAYLIST_ENABLE_MONTHLY", True)
+ENABLE_MOST_PLAYED = parse_bool_env("PLAYLIST_ENABLE_MOST_PLAYED", True)
 # ENABLE_TIME_BASED removed - Vibes playlists no longer supported
-# ENABLE_TIME_BASED = _parse_bool_env("PLAYLIST_ENABLE_TIME_BASED", True)
 # ENABLE_REPEAT removed - OnRepeat playlists no longer supported
-# ENABLE_REPEAT = _parse_bool_env("PLAYLIST_ENABLE_REPEAT", True)
-ENABLE_DISCOVERY = _parse_bool_env("PLAYLIST_ENABLE_DISCOVERY", True)
+ENABLE_DISCOVERY = parse_bool_env("PLAYLIST_ENABLE_DISCOVERY", True)
 
 PREFIX_MONTHLY = os.environ.get("PLAYLIST_PREFIX_MONTHLY", BASE_PREFIX)
 PREFIX_GENRE_MONTHLY = os.environ.get("PLAYLIST_PREFIX_GENRE_MONTHLY", BASE_PREFIX)
