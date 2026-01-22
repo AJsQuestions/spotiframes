@@ -173,6 +173,31 @@ The sync script and notebook `05_liked_songs_monthly_playlists.ipynb` create aut
 - Last 3 months kept as monthly playlists
 - Older months automatically consolidated into yearly playlists (e.g., `AJFinds24`, `AJTop24`)
 
+### Advanced Genre Classification
+
+The project includes **multi-dimensional genre classification** using creative approaches beyond simple artist genre tags:
+
+**Features:**
+- 🎯 **Collaborative Filtering** - Infers genres from similar tracks (shared artists, same playlists)
+- 🔗 **Playlist Co-occurrence** - Tracks appearing together frequently share genre signals
+- 👥 **Artist Network Analysis** - Uses collaboration patterns to infer genres
+- ⏰ **Temporal Patterns** - Genre evolution over time based on release years
+- 🔀 **Genre Hybrids** - Discovers tracks that blend multiple genres (e.g., "Hip-Hop + Electronic")
+- 📈 **Emerging Genres** - Identifies trending genres in your library over time
+- 🎨 **Dynamic Discovery** - Learns genre patterns from your library and playlists
+
+**Enable Genre Discovery Report:**
+```bash
+# Add to .env file:
+ENABLE_GENRE_DISCOVERY=true
+```
+
+The genre discovery report (generated after sync) shows:
+- Genre clusters in your library (K-means clustering)
+- Hybrid genre combinations with example tracks
+- Emerging genre trends (growth rates over time)
+- Your genre preferences and diversity scores
+
 ---
 
 ## 🤖 Automation
