@@ -321,6 +321,7 @@ def get_all_broad_genres(genre_list: list) -> List[str]:
     """Map artist genres to ALL matching broad categories.
     
     A track/artist can match multiple categories (e.g., both Hip-Hop and R&B/Soul).
+    Uses strict word boundary matching to prevent false positives.
     
     Args:
         genre_list: List of genre strings from artist
@@ -331,14 +332,51 @@ def get_all_broad_genres(genre_list: list) -> List[str]:
     if not genre_list:
         return []
     
-    combined = " ".join(str(g) for g in genre_list).lower()
+    import re
+    
+    # Normalize genre list - handle special characters
+    normalized_genres = []
+    for g in genre_list:
+        g_str = str(g).lower().strip()
+        # Normalize r&b variations
+        g_str = g_str.replace("r&b", "rnb").replace("r and b", "rnb")
+        normalized_genres.append(g_str)
+    
+    combined = " ".join(normalized_genres)
+    combined_words = set(combined.split())
     matched = []
     seen = set()
     
     for keywords, category in GENRE_RULES:
-        if category not in seen and any(kw in combined for kw in keywords):
-            matched.append(category)
-            seen.add(category)
+        if category in seen:
+            continue
+            
+        # Check each keyword for this category
+        for kw in keywords:
+            kw_lower = kw.lower().strip()
+            # Normalize r&b variations
+            kw_lower = kw_lower.replace("r&b", "rnb").replace("r and b", "rnb")
+            
+            # Multi-word keywords (e.g., "hip hop", "r&b")
+            if " " in kw_lower:
+                # Check if multi-word phrase appears in combined string
+                if kw_lower in combined:
+                    matched.append(category)
+                    seen.add(category)
+                    break
+            else:
+                # Single word - must be exact word match (word boundaries)
+                # Check if it's in the word set (exact match)
+                if kw_lower in combined_words:
+                    matched.append(category)
+                    seen.add(category)
+                    break
+                # Also check with regex word boundaries for safety
+                pattern = r'\b' + re.escape(kw_lower) + r'\b'
+                if re.search(pattern, combined):
+                    matched.append(category)
+                    seen.add(category)
+                    break
     
     return matched
 
