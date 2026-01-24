@@ -141,6 +141,65 @@ DATA_DIR = PROJECT_ROOT / "data"
 LIKED_SONGS_PLAYLIST_ID = "__liked_songs__"  # Match spotim8 library constant
 
 # ============================================================================
+# API AND RATE LIMITING CONSTANTS
+# ============================================================================
+
+# Spotify API limits
+SPOTIFY_API_MAX_TRACKS_PER_REQUEST = 100
+SPOTIFY_API_MAX_PLAYLIST_ITEMS = 100
+SPOTIFY_API_PAGINATION_LIMIT = 50
+
+# Rate limiting
+API_RATE_LIMIT_DELAY = 0.1  # Base delay between API calls (seconds)
+API_RATE_LIMIT_BACKOFF_MULTIPLIER = 1.5  # Multiplier for backoff on rate errors
+API_RATE_LIMIT_MAX_RETRIES = 6  # Maximum retry attempts for rate-limited requests
+API_RATE_LIMIT_INITIAL_DELAY = 1.0  # Initial delay on rate limit (seconds)
+
+# ============================================================================
+# DESCRIPTION AND FORMATTING CONSTANTS
+# ============================================================================
+
+# Spotify limits
+SPOTIFY_MAX_DESCRIPTION_LENGTH = 300  # Maximum characters in playlist description
+SPOTIFY_MAX_GENRE_TAGS = 20  # Maximum genre tags to show in description
+SPOTIFY_MAX_GENRE_TAG_LENGTH = 200  # Maximum length for genre tag string
+
+# Description formatting
+DESCRIPTION_TRUNCATE_MARGIN = 10  # Characters to leave when truncating
+DESCRIPTION_PREVIEW_LENGTH = 100  # Characters to show in preview logs
+
+# ============================================================================
+# TRACK AND PLAYLIST CONSTANTS
+# ============================================================================
+
+# Track ID validation
+MIN_TRACK_ID_LENGTH = 20  # Minimum length for a valid track ID
+TRACK_URI_PREFIX = "spotify:track:"
+
+# Playlist limits
+MAX_PLAYLIST_TRACKS = 10000  # Spotify's maximum tracks per playlist
+DEFAULT_DISCOVERY_TRACK_LIMIT = 50  # Default limit for discovery tracks
+
+# ============================================================================
+# GENRE CLASSIFICATION CONSTANTS
+# ============================================================================
+
+# Genre thresholds (can be overridden by environment variables)
+GENRE_ADAPTIVE_THRESHOLD_PERCENT = 0.01  # 1% of library for adaptive threshold
+GENRE_MIN_TRACKS_FALLBACK = 5  # Minimum tracks for fallback genre inclusion
+GENRE_MAX_TRACKS_THRESHOLD = 50  # Maximum tracks for adaptive threshold cap
+GENRE_FALLBACK_PERCENT = 0.3  # 30% of threshold for fallback genres
+
+# ============================================================================
+# PARALLEL PROCESSING CONSTANTS
+# ============================================================================
+
+# Parallel processing
+PARALLEL_MIN_TRACKS = 50  # Minimum tracks to enable parallel processing
+PARALLEL_DEFAULT_WORKERS = None  # None = auto-detect (CPU count)
+PARALLEL_MAX_WORKERS = 8  # Maximum number of parallel workers
+
+# ============================================================================
 # MONTH NAME MAPPINGS
 # ============================================================================
 

@@ -480,7 +480,7 @@ def _to_uri(track_id: str) -> str:
     track_id = str(track_id)
     if track_id.startswith("spotify:track:"):
         return track_id
-    if len(track_id) >= 20 and ":" not in track_id:
+    if len(track_id) >= MIN_TRACK_ID_LENGTH and ":" not in track_id:
         return f"spotify:track:{track_id}"
     return track_id
 
@@ -640,7 +640,7 @@ def _get_genre_emoji(genre: str) -> str:
     # Default emoji
     return "🎵"
 
-def _format_genre_tags(specific_genres_counter, broad_genres_counter, max_tags: int = 20, max_length: int = 200) -> str:
+def _format_genre_tags(specific_genres_counter, broad_genres_counter, max_tags: int = SPOTIFY_MAX_GENRE_TAGS, max_length: int = SPOTIFY_MAX_GENRE_TAG_LENGTH) -> str:
     """Format genre counters as a tag string for playlist description.
     
     Args:
@@ -693,7 +693,7 @@ def _format_genre_tags(specific_genres_counter, broad_genres_counter, max_tags: 
     
     return tag_str
 
-def _add_genre_tags_to_description(current_description: str, track_uris: list, max_tags: int = 20) -> str:
+def _add_genre_tags_to_description(current_description: str, track_uris: list, max_tags: int = SPOTIFY_MAX_GENRE_TAGS) -> str:
     """Add or update genre tags in playlist description."""
     # Get genres for tracks (counters)
     specific_genres_counter, broad_genres_counter = _get_genres_from_track_uris(track_uris)
@@ -703,8 +703,8 @@ def _add_genre_tags_to_description(current_description: str, track_uris: list, m
     # Format genre tags
     genre_tags = _format_genre_tags(specific_genres_counter, broad_genres_counter, max_tags=max_tags, max_length=200)
     
-    # Spotify description limit is 300 chars
-    MAX_DESCRIPTION_LENGTH = 300
+    # Use constant from config
+    MAX_DESCRIPTION_LENGTH = SPOTIFY_MAX_DESCRIPTION_LENGTH
     
     # Build new description (check for emoji genre tags or "Genres:" pattern)
     # Look for common emoji patterns or "Genres:" prefix
@@ -810,7 +810,7 @@ def _update_playlist_description_with_genres(sp: spotipy.Spotify, user_id: str, 
             new_description = genre_description
         
         # Sanitize and validate description
-        MAX_DESCRIPTION_LENGTH = 300
+        MAX_DESCRIPTION_LENGTH = SPOTIFY_MAX_DESCRIPTION_LENGTH
         
         # Ensure description is a string and not None
         if new_description is None:
@@ -1196,12 +1196,12 @@ def get_existing_playlists(sp: spotipy.Spotify, force_refresh: bool = False) -> 
     mapping = {}
     offset = 0
     while True:
-        page = api_call(sp.current_user_playlists, limit=50, offset=offset)
+        page = api_call(sp.current_user_playlists, limit=SPOTIFY_API_PAGINATION_LIMIT, offset=offset)
         for item in page.get("items", []):
             mapping[item["name"]] = item["id"]
         if not page.get("next"):
             break
-        offset += 50
+        offset += SPOTIFY_API_PAGINATION_LIMIT
     
     _playlist_cache = mapping
     _playlist_cache_valid = True
@@ -1229,7 +1229,7 @@ def get_playlist_tracks(sp: spotipy.Spotify, playlist_id: str, force_refresh: bo
             sp.playlist_items,
             playlist_id,
             fields="items(track(uri)),next",
-            limit=100,
+            limit=SPOTIFY_API_MAX_TRACKS_PER_REQUEST,
             offset=offset,
         )
         for item in page.get("items", []):
@@ -2091,7 +2091,7 @@ def get_repeat_tracks(history_df: pd.DataFrame, month_str: str = None, min_repea
     return [uri for uri in top_tracks if pd.notna(uri) and uri]
 
 
-def get_discovery_tracks(history_df: pd.DataFrame, month_str: str = None, limit: int = 50) -> list:
+def get_discovery_tracks(history_df: pd.DataFrame, month_str: str = None, limit: int = DEFAULT_DISCOVERY_TRACK_LIMIT) -> list:
     """
     Get newly discovered tracks (first time played) in a given month (or all data if month_str is None).
     
