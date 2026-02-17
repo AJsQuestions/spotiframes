@@ -58,12 +58,8 @@ ENABLE_DISCOVERY = parse_bool_env("PLAYLIST_ENABLE_DISCOVERY", True)
 # Most users don't need to customize these - defaults work well
 # Only set if you want different prefixes for different playlist types
 PREFIX_MONTHLY = parse_str_env("PLAYLIST_PREFIX_MONTHLY", BASE_PREFIX)
-PREFIX_GENRE_MONTHLY = parse_str_env("PLAYLIST_PREFIX_GENRE_MONTHLY", BASE_PREFIX)
 PREFIX_YEARLY = parse_str_env("PLAYLIST_PREFIX_YEARLY", BASE_PREFIX)
-PREFIX_GENRE_MASTER = parse_str_env("PLAYLIST_PREFIX_GENRE_MASTER", "am")
 PREFIX_MOST_PLAYED = parse_str_env("PLAYLIST_PREFIX_MOST_PLAYED", "Top")
-PREFIX_TIME_BASED = parse_str_env("PLAYLIST_PREFIX_TIME_BASED", "Vibes")  # Deprecated: feature removed
-PREFIX_REPEAT = parse_str_env("PLAYLIST_PREFIX_REPEAT", "OnRepeat")  # Deprecated: feature removed
 PREFIX_DISCOVERY = parse_str_env("PLAYLIST_PREFIX_DISCOVERY", "Discovery")
 
 # ============================================================================
@@ -80,28 +76,8 @@ YEARLY_NAME_TEMPLATE = parse_str_env(
     "PLAYLIST_TEMPLATE_YEARLY",
     "{owner}{prefix}{year}"
 )
-GENRE_MONTHLY_TEMPLATE = parse_str_env(
-    "PLAYLIST_TEMPLATE_GENRE_MONTHLY",
-    "{genre}{prefix}{mon}{year}"
-)
-GENRE_YEARLY_TEMPLATE = parse_str_env(
-    "PLAYLIST_TEMPLATE_GENRE_YEARLY",
-    "{genre}{prefix}{year}"
-)
-GENRE_NAME_TEMPLATE = parse_str_env(
-    "PLAYLIST_TEMPLATE_GENRE_MASTER",
-    "{owner}{prefix}{genre}"
-)
 MOST_PLAYED_TEMPLATE = parse_str_env(
     "PLAYLIST_TEMPLATE_MOST_PLAYED",
-    "{owner}{prefix}{mon}{year}"
-)
-TIME_BASED_TEMPLATE = parse_str_env(
-    "PLAYLIST_TEMPLATE_TIME_BASED",
-    "{owner}{prefix}{mon}{year}"
-)
-REPEAT_TEMPLATE = parse_str_env(
-    "PLAYLIST_TEMPLATE_REPEAT",
     "{owner}{prefix}{mon}{year}"
 )
 DISCOVERY_TEMPLATE = parse_str_env(
@@ -113,11 +89,6 @@ DISCOVERY_TEMPLATE = parse_str_env(
 # PLAYLIST LIMITS AND RETENTION
 # ============================================================================
 
-# Genre playlist thresholds
-# MIN_TRACKS_FOR_GENRE: Minimum absolute number of tracks (adaptive threshold also used)
-# Lower this if you want more genre playlists with fewer tracks
-MIN_TRACKS_FOR_GENRE = parse_int_env("MIN_TRACKS_FOR_GENRE", 10)  # Lowered from 20 to 10
-MAX_GENRE_PLAYLISTS = parse_int_env("MAX_GENRE_PLAYLISTS", 25)  # Increased from 19 to 25
 KEEP_MONTHLY_MONTHS = parse_int_env("KEEP_MONTHLY_MONTHS", 3)
 
 # ============================================================================
@@ -130,10 +101,9 @@ SEPARATOR_PREFIX = parse_str_env("PLAYLIST_SEPARATOR_PREFIX", "none")  # Options
 CAPITALIZATION = parse_str_env("PLAYLIST_CAPITALIZATION", "preserve")  # Options: title, upper, lower, preserve
 DESCRIPTION_TEMPLATE = parse_str_env(
     "PLAYLIST_DESCRIPTION_TEMPLATE",
-    "{description} from {period} (automatically updated)"
+    "{description} from {period}"
 )
-# Top genres/moods to show in playlist descriptions (short format)
-DESCRIPTION_TOP_GENRES = parse_int_env("DESCRIPTION_TOP_GENRES", 5)
+# Playlist description: simple log line + optional mood tags (genre support removed)
 
 # ============================================================================
 # PATHS AND CONSTANTS
@@ -163,15 +133,13 @@ API_RATE_LIMIT_INITIAL_DELAY = 1.0  # Initial delay on rate limit (seconds)
 
 # Spotify limits
 SPOTIFY_MAX_DESCRIPTION_LENGTH = 300  # Maximum characters in playlist description
-SPOTIFY_MAX_GENRE_TAGS = 20  # Maximum genre tags to show in description
-SPOTIFY_MAX_GENRE_TAG_LENGTH = 200  # Maximum length for genre tag string
 
 # Description formatting
 DESCRIPTION_TRUNCATE_MARGIN = 10  # Characters to leave when truncating
 DESCRIPTION_PREVIEW_LENGTH = 100  # Characters to show in preview logs
 
-# Mood tags (Daylist-style) in playlist descriptions
-ENABLE_MOOD_TAGS = parse_bool_env("ENABLE_MOOD_TAGS", True)
+# Mood tags (Daylist-style): minimal top 5 in playlist descriptions
+ENABLE_MOOD_TAGS = parse_bool_env("ENABLE_MOOD_TAGS", False)
 MOOD_MAX_TAGS = parse_int_env("MOOD_MAX_TAGS", 5)
 
 # ============================================================================
@@ -185,16 +153,6 @@ TRACK_URI_PREFIX = "spotify:track:"
 # Playlist limits
 MAX_PLAYLIST_TRACKS = 10000  # Spotify's maximum tracks per playlist
 DEFAULT_DISCOVERY_TRACK_LIMIT = 50  # Default limit for discovery tracks
-
-# ============================================================================
-# GENRE CLASSIFICATION CONSTANTS
-# ============================================================================
-
-# Genre thresholds (can be overridden by environment variables)
-GENRE_ADAPTIVE_THRESHOLD_PERCENT = 0.01  # 1% of library for adaptive threshold
-GENRE_MIN_TRACKS_FALLBACK = 5  # Minimum tracks for fallback genre inclusion
-GENRE_MAX_TRACKS_THRESHOLD = 50  # Maximum tracks for adaptive threshold cap
-GENRE_FALLBACK_PERCENT = 0.3  # 30% of threshold for fallback genres
 
 # ============================================================================
 # PARALLEL PROCESSING CONSTANTS
@@ -220,4 +178,64 @@ MONTH_NAMES_MEDIUM = {
     "09": "September", "10": "October", "11": "November", "12": "December"
 }
 MONTH_NAMES = MONTH_NAMES_SHORT  # Default to short for backward compatibility
+
+
+def reload_from_env() -> None:
+    """Re-read all config from environment. Call after setting os.environ (e.g. from CLI or --config file)."""
+    global DATA_DIR, OWNER_NAME, BASE_PREFIX, ENABLE_MONTHLY, ENABLE_MOST_PLAYED, ENABLE_DISCOVERY
+    global PREFIX_MONTHLY, PREFIX_YEARLY, PREFIX_MOST_PLAYED, PREFIX_DISCOVERY
+    global MONTHLY_NAME_TEMPLATE, YEARLY_NAME_TEMPLATE, MOST_PLAYED_TEMPLATE, DISCOVERY_TEMPLATE
+    global DATE_FORMAT, SEPARATOR_MONTH, SEPARATOR_PREFIX, CAPITALIZATION
+    global KEEP_MONTHLY_MONTHS, DESCRIPTION_TEMPLATE, ENABLE_MOOD_TAGS, MOOD_MAX_TAGS
+    DATA_DIR = _get_data_dir(__file__)
+    OWNER_NAME = parse_str_env("PLAYLIST_OWNER_NAME", "AJ")
+    BASE_PREFIX = parse_str_env("PLAYLIST_PREFIX", "Finds")
+    ENABLE_MONTHLY = parse_bool_env("PLAYLIST_ENABLE_MONTHLY", True)
+    ENABLE_MOST_PLAYED = parse_bool_env("PLAYLIST_ENABLE_MOST_PLAYED", True)
+    ENABLE_DISCOVERY = parse_bool_env("PLAYLIST_ENABLE_DISCOVERY", True)
+    PREFIX_MONTHLY = parse_str_env("PLAYLIST_PREFIX_MONTHLY", BASE_PREFIX)
+    PREFIX_YEARLY = parse_str_env("PLAYLIST_PREFIX_YEARLY", BASE_PREFIX)
+    PREFIX_MOST_PLAYED = parse_str_env("PLAYLIST_PREFIX_MOST_PLAYED", "Top")
+    PREFIX_DISCOVERY = parse_str_env("PLAYLIST_PREFIX_DISCOVERY", "Discovery")
+    MONTHLY_NAME_TEMPLATE = parse_str_env("PLAYLIST_TEMPLATE_MONTHLY", "{owner}{prefix}{mon}{year}")
+    YEARLY_NAME_TEMPLATE = parse_str_env("PLAYLIST_TEMPLATE_YEARLY", "{owner}{prefix}{year}")
+    MOST_PLAYED_TEMPLATE = parse_str_env("PLAYLIST_TEMPLATE_MOST_PLAYED", "{owner}{prefix}{mon}{year}")
+    DISCOVERY_TEMPLATE = parse_str_env("PLAYLIST_TEMPLATE_DISCOVERY", "{owner}{prefix}{mon}{year}")
+    DATE_FORMAT = parse_str_env("PLAYLIST_DATE_FORMAT", "short")
+    SEPARATOR_MONTH = parse_str_env("PLAYLIST_SEPARATOR_MONTH", "none")
+    SEPARATOR_PREFIX = parse_str_env("PLAYLIST_SEPARATOR_PREFIX", "none")
+    CAPITALIZATION = parse_str_env("PLAYLIST_CAPITALIZATION", "preserve")
+    KEEP_MONTHLY_MONTHS = parse_int_env("KEEP_MONTHLY_MONTHS", 3)
+    DESCRIPTION_TEMPLATE = parse_str_env("PLAYLIST_DESCRIPTION_TEMPLATE", "{description} from {period}")
+    ENABLE_MOOD_TAGS = parse_bool_env("ENABLE_MOOD_TAGS", False)
+    MOOD_MAX_TAGS = parse_int_env("MOOD_MAX_TAGS", 5)
+    # Update _sync_impl.settings so it sees new values
+    try:
+        from src.scripts.automation import _sync_impl
+        s = _sync_impl.settings
+        s.DATA_DIR = DATA_DIR
+        s.OWNER_NAME = OWNER_NAME
+        s.BASE_PREFIX = BASE_PREFIX
+        s.KEEP_MONTHLY_MONTHS = KEEP_MONTHLY_MONTHS
+        s.ENABLE_MONTHLY = ENABLE_MONTHLY
+        s.ENABLE_MOST_PLAYED = ENABLE_MOST_PLAYED
+        s.ENABLE_DISCOVERY = ENABLE_DISCOVERY
+        s.PREFIX_MONTHLY = PREFIX_MONTHLY
+        s.PREFIX_YEARLY = PREFIX_YEARLY
+        s.PREFIX_MOST_PLAYED = PREFIX_MOST_PLAYED
+        s.PREFIX_DISCOVERY = PREFIX_DISCOVERY
+        s.MONTHLY_NAME_TEMPLATE = MONTHLY_NAME_TEMPLATE
+        s.DATE_FORMAT = DATE_FORMAT
+        s.SEPARATOR_MONTH = SEPARATOR_MONTH
+        s.SEPARATOR_PREFIX = SEPARATOR_PREFIX
+        s.CAPITALIZATION = CAPITALIZATION
+        s.MONTH_NAMES_SHORT = MONTH_NAMES_SHORT
+        s.MONTH_NAMES_MEDIUM = MONTH_NAMES_MEDIUM
+        s.MONTH_NAMES = MONTH_NAMES
+        s.DESCRIPTION_TEMPLATE = DESCRIPTION_TEMPLATE
+        s.SPOTIFY_MAX_DESCRIPTION_LENGTH = SPOTIFY_MAX_DESCRIPTION_LENGTH
+        s.MOOD_MAX_TAGS = MOOD_MAX_TAGS
+        s.DEFAULT_DISCOVERY_TRACK_LIMIT = DEFAULT_DISCOVERY_TRACK_LIMIT
+    except Exception:
+        pass
 

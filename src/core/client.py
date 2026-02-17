@@ -14,6 +14,9 @@ import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from tqdm import tqdm
 
+# Fixed width for tqdm bars (avoids Python 3.13 / IDE terminal breakage from dynamic_ncols)
+TQDM_NCOLS = 80
+
 from .catalog import CacheConfig, DataCatalog
 from ..utils.ratelimit import rate_limited_call, DEFAULT_REQUEST_DELAY
 from ..utils.utils import chunks
@@ -151,13 +154,11 @@ class Spotim8:
     # Incremental refresh / sync
     # -------------------------
     def sync(self, force: bool = False, owned_only: bool = True, include_liked_songs: bool = True) -> dict:
-        """Sync library data - pull new/changed playlists incrementally.
-        
-        This is the main method to keep your local data up to date.
-        Call this periodically to pick up changes to your playlists.
+        """Sync library data. When force=False, only fetches changed playlists (incremental).
+        When force=True, clears caches and re-pulls everything from scratch.
         
         Args:
-            force: If True, re-pull everything from scratch
+            force: If True, clear caches and re-pull everything. If False, only fetch tracks for playlists whose snapshot_id changed.
             owned_only: If True, only sync playlists you own (default)
             include_liked_songs: If True, include Liked Songs as master playlist (default)
             
@@ -166,8 +167,17 @@ class Spotim8:
         """
         self._progress_print("🔄 Starting library sync...")
         stats = {"playlists_checked": 0, "playlists_updated": 0, "tracks_added": 0, "liked_songs": 0}
-        
-        # Always refresh playlist list (includes Liked Songs)
+
+        if force:
+            # Full refresh: invalidate all cached tables so we refetch everything
+            for key in ["playlists", "playlist_tracks", "tracks", "track_artists", "artists", "library_wide", "liked_songs"]:
+                p = self.catalog.table_path(key)
+                if p.exists():
+                    p.unlink(missing_ok=True)
+                self.catalog._memo.pop(key, None)
+            self._progress_print("🔄 Force refresh: caches cleared, re-pulling all data.")
+
+        # Fetch current playlist list (needed for snapshot_id comparison; always from API)
         pls = self.playlists(force=True, include_liked_songs=include_liked_songs)
         
         # Filter to owned only
@@ -198,7 +208,7 @@ class Spotim8:
             # Load existing or create new
             pt = self.catalog.load("playlist_tracks")
             if pt is None or force:
-                    pt = pd.DataFrame(columns=["playlist_id", "track_id", "track_uri", "is_local", "added_at", "added_by", "position"])
+                pt = pd.DataFrame(columns=["playlist_id", "track_id", "track_uri", "is_local", "added_at", "added_by", "position"])
             else:
                 pt = pt[~pt["playlist_id"].isin(changed)].copy()
 
@@ -215,17 +225,15 @@ class Spotim8:
             pid_to_name = pls.set_index("playlist_id")["name"].to_dict()
             
             # Fetch regular playlists with visible progress (file=stderr, mininterval so bar updates).
-            # Use position=0 and fixed ncols when stderr isn't a TTY so updates don't concatenate on one line.
+            # Fixed ncols avoids Python 3.13 / IDE terminal breakage from dynamic_ncols.
             if self.progress and changed:
-                _file = sys.stderr
-                _ncols = None if _file.isatty() else 80
                 pbar = tqdm(
                     changed,
                     desc="Syncing playlists",
                     unit="pl",
-                    file=_file,
-                    dynamic_ncols=(_ncols is None),
-                    ncols=_ncols,
+                    file=sys.stderr,
+                    dynamic_ncols=False,
+                    ncols=TQDM_NCOLS,
                     mininterval=0.5,
                     leave=True,
                     position=0,
@@ -258,7 +266,7 @@ class Spotim8:
 
         # Update metadata
         meta["playlist_snapshots"] = new_snapshots
-        meta["last_sync_utc"] = pd.Timestamp.utcnow().isoformat()
+        meta["last_sync_utc"] = pd.Timestamp.now("UTC").isoformat()
         meta["owned_only"] = owned_only
         meta["include_liked_songs"] = include_liked_songs
         self.catalog.save_meta(meta)
@@ -320,7 +328,8 @@ class Spotim8:
                 desc="Fetching Liked Songs",
                 unit="track",
                 file=sys.stderr,
-                dynamic_ncols=True,
+                dynamic_ncols=False,
+                ncols=TQDM_NCOLS,
                 mininterval=0.5,
                 leave=True,
             )
@@ -471,7 +480,8 @@ class Spotim8:
                 desc="Fetching playlist tracks",
                 unit="pl",
                 file=sys.stderr,
-                dynamic_ncols=True,
+                dynamic_ncols=False,
+                ncols=TQDM_NCOLS,
                 mininterval=0.5,
                 leave=True,
             )
@@ -524,7 +534,8 @@ class Spotim8:
                 desc="Fetching tracks",
                 unit="chunk",
                 file=sys.stderr,
-                dynamic_ncols=True,
+                dynamic_ncols=False,
+                ncols=TQDM_NCOLS,
                 mininterval=0.5,
                 leave=True,
             )
@@ -578,7 +589,8 @@ class Spotim8:
                 desc="Fetching track artists",
                 unit="chunk",
                 file=sys.stderr,
-                dynamic_ncols=True,
+                dynamic_ncols=False,
+                ncols=TQDM_NCOLS,
                 mininterval=0.5,
                 leave=True,
             )
@@ -618,7 +630,8 @@ class Spotim8:
                 desc="Fetching artists",
                 unit="chunk",
                 file=sys.stderr,
-                dynamic_ncols=True,
+                dynamic_ncols=False,
+                ncols=TQDM_NCOLS,
                 mininterval=0.5,
                 leave=True,
             )

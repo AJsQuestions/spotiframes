@@ -47,10 +47,15 @@ def get_spotify_client(current_file: str = None) -> spotipy.Spotify:
             "Set them in environment variables or .env file."
         )
     
-    scopes = "user-library-read playlist-modify-private playlist-modify-public playlist-read-private"
+    scopes = (
+        "user-library-read playlist-modify-private playlist-modify-public "
+        "playlist-read-private playlist-read-collaborative "
+        "user-read-email user-read-private"
+    )
     
     if refresh_token:
         # Headless auth using refresh token (for CI/CD)
+        # Use auth_manager so the client can auto-refresh when the access token expires
         auth = SpotifyOAuth(
             client_id=client_id,
             client_secret=client_secret,
@@ -58,7 +63,8 @@ def get_spotify_client(current_file: str = None) -> spotipy.Spotify:
             scope=scopes
         )
         token_info = auth.refresh_access_token(refresh_token)
-        return spotipy.Spotify(auth=token_info["access_token"])
+        auth.cache_handler.save_token_to_cache(token_info)
+        return spotipy.Spotify(auth_manager=auth)
     else:
         # Interactive auth (for local use)
         data_dir = get_data_dir(current_file) if current_file else Path.cwd() / "data"

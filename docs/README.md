@@ -1,6 +1,6 @@
 # 📚 SpotiM8 Documentation
 
-Welcome to the SpotiM8 documentation! This directory contains comprehensive documentation organized by topic.
+Welcome to the SpotiM8 v6 documentation. v6 maintains **yearly archive playlists only** (Finds, Top, Discovery per year). This directory contains documentation organized by topic.
 
 ## 📖 Documentation Structure
 
@@ -15,7 +15,6 @@ Welcome to the SpotiM8 documentation! This directory contains comprehensive docu
 
 ### 🛠️ Development
 - **[Contributing Guide](development/contributing.md)** - How to contribute to the project
-- **[Refactoring Plan](development/refactoring-plan.md)** - Code quality improvements and refactoring status
 
 ### 📋 Reference
 - **[Changelog](reference/changelog.md)** - Version history and release notes
@@ -25,7 +24,6 @@ Welcome to the SpotiM8 documentation! This directory contains comprehensive docu
 ## 🔗 Quick Links
 
 - **[Main README](../README.md)** - Project overview and quick start
-- **[Examples](../examples/)** - Code examples and tutorials
 - **[Notebooks](../src/notebooks/)** - Jupyter notebooks for analysis
 
 ## 📝 Documentation Status

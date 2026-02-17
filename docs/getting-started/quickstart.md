@@ -1,6 +1,6 @@
 # Quick Start Guide
 
-This guide will help you get SpotiM8 up and running in minutes.
+This guide will help you get SpotiM8 v6 up and running. v6 maintains yearly archive playlists only (Finds, Top, Discovery per year).
 
 ## Prerequisites
 
@@ -76,7 +76,7 @@ This will open your browser for Spotify authorization and generate a refresh tok
 
 ```bash
 # Sync your library (first time can take 1-2+ hours for large libraries)
-python src/scripts/automation/sync.py
+python -m src.scripts.automation.sync
 ```
 
 ## Next Steps

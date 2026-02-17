@@ -13,7 +13,6 @@ from pathlib import Path
 
 from .sync import DATA_DIR, api_call, log, verbose_log
 from .formatting import format_playlist_description
-from src.features.genres import get_all_broad_genres, get_all_split_genres
 
 
 def get_playlist_statistics(

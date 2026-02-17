@@ -58,14 +58,15 @@ This document describes the comprehensive data protection mechanisms implemented
 - `merge_playlists()` - Two playlist merge
 - `merge_multiple_playlists()` - Multiple playlist merge
 - `merge_to_new_playlist()` - Merge to new playlist
-- `consolidate_old_monthly_playlists()` - Monthly to yearly consolidation
+- `consolidate_old_monthly_playlists()` - Ensures yearly playlists exist (no monthly retention)
+- `delete_automated_monthly_and_genre_playlists()` - Deletes automated monthly/genre playlists (backed up)
 
 ### 5. Consolidation Safety
 
-**Monthly playlist consolidation:**
-- Verify all monthly tracks are in yearly playlist
-- Create backup before deleting monthly playlists
-- Abort deletion if tracks are missing
+**Yearly playlist flow:**
+- Pipeline deletes automated monthly/genre playlists first, then ensures yearly playlists exist
+- Backup created before any playlist deletion
+- Abort deletion if verification fails
 - Log backup location for recovery
 
 ## 📋 Protected Operations
@@ -73,19 +74,13 @@ This document describes the comprehensive data protection mechanisms implemented
 ### ✅ Safe Operations (No Data Loss Risk)
 
 These operations **only add tracks** and never remove:
-- `update_monthly_playlists()` - Only adds tracks
-- `update_genre_split_playlists()` - Only adds tracks
+- `update_current_year_playlists()` - Only adds tracks to current year Finds/Top/Discovery
 - `sync_full_library()` - Only syncs data, doesn't modify playlists
 
 ### ⚠️ Protected Operations (With Backups)
 
 These operations are protected with backups and verification:
-- **Track Removal** (genre master playlists)
-  - Backup created before removal
-  - Validation after removal
-  - Recovery available via backup
-
-- **Playlist Deletion** (consolidation, duplicates)
+- **Playlist Deletion** (delete_automated_monthly_and_genre_playlists, consolidation, duplicates)
   - Backup created before deletion
   - Verification that tracks are preserved elsewhere
   - Abort if verification fails
@@ -111,17 +106,17 @@ All destructive operations automatically:
 
 List backups:
 ```bash
-python src/scripts/automation/backup_manager.py --list
+python -m src.scripts.automation.backup_manager --list
 ```
 
 Show backup info:
 ```bash
-python src/scripts/automation/backup_manager.py --info backup_file.json
+python -m src.scripts.automation.backup_manager --info backup_file.json
 ```
 
 Cleanup old backups:
 ```bash
-python src/scripts/automation/backup_manager.py --cleanup 30  # Keep last 30 days
+python -m src.scripts.automation.backup_manager --cleanup 30  # Keep last 30 days
 ```
 
 ### Restore from Backup
@@ -171,9 +166,9 @@ restore_playlist_from_backup(
 ### Track Removal Verification
 
 ```
-  Playlist Name: Removing 12 track(s) that don't match genre...
+  Playlist Name: Deleting automated playlist (tracks verified in yearly).
   💾 Created backup: PlaylistName_abc123_20250122_120000.json (234 tracks)
-  ✅ Track removal completed successfully
+  ✅ Deletion completed successfully
 ```
 
 ## 🚨 Safety Guarantees

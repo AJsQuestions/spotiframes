@@ -51,7 +51,7 @@ def main():
         client_id=client_id,
         client_secret=client_secret,
         redirect_uri=redirect_uri,
-        scope="user-library-read playlist-modify-private playlist-modify-public playlist-read-private",
+        scope="user-library-read playlist-modify-private playlist-modify-public playlist-read-private playlist-read-collaborative user-read-email user-read-private",
         open_browser=True
     )
     

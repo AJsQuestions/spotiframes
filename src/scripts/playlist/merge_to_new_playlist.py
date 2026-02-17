@@ -38,6 +38,7 @@ from src.scripts.common import (
 
 # Setup environment
 PROJECT_ROOT = setup_script_environment(__file__)
+DATA_DIR = get_data_dir(__file__)
 
 def merge_to_new_playlist(sp: spotipy.Spotify, playlist1_name: str, playlist2_name: str, new_playlist_name: str, delete_newer: bool = True) -> None:
     """Merge two playlists into the older playlist, renaming it to the new name."""

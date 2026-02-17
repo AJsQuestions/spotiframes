@@ -13,11 +13,13 @@ from datetime import datetime
 from pathlib import Path
 import shutil
 
-from .sync import DATA_DIR, api_call, log, verbose_log, get_playlist_tracks
 
-
-BACKUP_DIR = DATA_DIR / ".backups"
-BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+def _get_backup_dir() -> Path:
+    """Get the backup directory, creating it lazily."""
+    from .sync import DATA_DIR
+    backup_dir = DATA_DIR / ".backups"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    return backup_dir
 
 
 def create_playlist_backup(
@@ -27,19 +29,20 @@ def create_playlist_backup(
 ) -> Optional[Path]:
     """
     Create a backup of a playlist before destructive operations.
-    
+
     Args:
         sp: Spotify client
         playlist_id: Playlist ID to backup
         playlist_name: Playlist name (for backup filename)
-    
+
     Returns:
         Path to backup file, or None if backup failed
     """
+    from .sync import api_call, log, verbose_log, get_playlist_tracks
     try:
         # Get all tracks
         tracks = get_playlist_tracks(sp, playlist_id, force_refresh=True)
-        
+
         # Get playlist metadata
         pl = api_call(sp.playlist, playlist_id, fields="name,description,public,collaborative")
         
@@ -59,7 +62,7 @@ def create_playlist_backup(
         # Save backup
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         safe_name = "".join(c for c in playlist_name if c.isalnum() or c in (' ', '-', '_')).strip()[:50]
-        backup_file = BACKUP_DIR / f"{safe_name}_{playlist_id[:8]}_{timestamp}.json"
+        backup_file = _get_backup_dir() / f"{safe_name}_{playlist_id[:8]}_{timestamp}.json"
         
         with open(backup_file, 'w', encoding='utf-8') as f:
             json.dump(backup_data, f, indent=2, ensure_ascii=False)
@@ -68,6 +71,7 @@ def create_playlist_backup(
         return backup_file
         
     except Exception as e:
+        from .sync import log
         log(f"  ⚠️  Failed to create backup for {playlist_name}: {e}")
         return None
 
@@ -90,20 +94,21 @@ def restore_playlist_from_backup(
     Returns:
         True if successful, False otherwise
     """
+    from .sync import api_call, log, get_playlist_tracks
     try:
         with open(backup_file, 'r', encoding='utf-8') as f:
             backup_data = json.load(f)
-        
+
         tracks = backup_data.get("tracks", [])
         playlist_name = backup_data.get("playlist_name", "Restored Playlist")
-        
+
         if dry_run:
             log(f"  [DRY RUN] Would restore '{playlist_name}' with {len(tracks)} tracks")
             return True
-        
+
         user = api_call(sp.me)
         user_id = user["id"]
-        
+
         if target_playlist_id:
             # Restore to existing playlist
             pid = target_playlist_id
@@ -122,15 +127,15 @@ def restore_playlist_from_backup(
                 description=backup_data.get("description", "")
             )
             pid = pl["id"]
-        
+
         # Add tracks
         from .sync import _chunked
         for chunk in _chunked(tracks, 50):
             api_call(sp.playlist_add_items, pid, chunk)
-        
+
         log(f"  ✅ Restored '{playlist_name}' with {len(tracks)} tracks")
         return True
-        
+
     except Exception as e:
         log(f"  ❌ Failed to restore from backup: {e}")
         return False
@@ -163,7 +168,6 @@ def validate_track_preservation(
     
     if unexpected_removals:
         issues.append(f"Unexpected track removals: {len(unexpected_removals)} tracks")
-        verbose_log(f"  ⚠️  Unexpected removals: {list(unexpected_removals)[:10]}")
     
     # Check for expected additions
     if expected_additions:
@@ -200,27 +204,26 @@ def safe_remove_tracks_from_playlist(
     Returns:
         Tuple of (success, backup_file_path)
     """
+    from .sync import api_call, log, get_playlist_tracks, _chunked, _playlist_tracks_cache
     backup_file = None
-    
+
     try:
         # Get tracks before removal
         before_tracks = get_playlist_tracks(sp, playlist_id, force_refresh=True)
-        
+
         # Create backup if requested
         if create_backup and tracks_to_remove:
             backup_file = create_playlist_backup(sp, playlist_id, playlist_name)
-        
+
         # Remove tracks
         if tracks_to_remove:
-            from .sync import _chunked
             for chunk in _chunked(tracks_to_remove, 50):
                 api_call(sp.playlist_remove_all_occurrences_of_items, playlist_id, chunk)
-            
+
             # Invalidate cache
-            from .sync import _playlist_tracks_cache
             if playlist_id in _playlist_tracks_cache:
                 del _playlist_tracks_cache[playlist_id]
-        
+
         # Validate after removal
         if validate_after:
             after_tracks = get_playlist_tracks(sp, playlist_id, force_refresh=True)
@@ -229,15 +232,15 @@ def safe_remove_tracks_from_playlist(
                 after_tracks,
                 expected_removals=set(tracks_to_remove)
             )
-            
+
             if not is_valid:
                 log(f"  ⚠️  Validation issues after removal: {', '.join(issues)}")
                 if backup_file:
                     log(f"  💾 Backup available at: {backup_file}")
                 return False, backup_file
-        
+
         return True, backup_file
-        
+
     except Exception as e:
         log(f"  ❌ Error during safe track removal: {e}")
         if backup_file:
@@ -265,16 +268,17 @@ def safe_delete_playlist(
     Returns:
         Tuple of (success, backup_file_path)
     """
+    from .sync import api_call, log, get_playlist_tracks
     backup_file = None
-    
+
     try:
         # Get tracks before deletion
         tracks_before = get_playlist_tracks(sp, playlist_id, force_refresh=True)
-        
+
         # Create backup if requested
         if create_backup:
             backup_file = create_playlist_backup(sp, playlist_id, playlist_name)
-        
+
         # Verify tracks are preserved in another playlist if specified
         if verify_tracks_preserved_in:
             preserved_tracks = get_playlist_tracks(sp, verify_tracks_preserved_in, force_refresh=True)
@@ -284,15 +288,15 @@ def safe_delete_playlist(
                 log(f"  💾 Backup created before deletion: {backup_file.name if backup_file else 'Failed'}")
                 # Don't delete if tracks aren't preserved
                 return False, backup_file
-        
+
         # Delete playlist
         user = api_call(sp.me)
         user_id = user["id"]
         api_call(sp.user_playlist_unfollow, user_id, playlist_id)
-        
+
         log(f"  ✅ Deleted playlist '{playlist_name}' (backup: {backup_file.name if backup_file else 'None'})")
         return True, backup_file
-        
+
     except Exception as e:
         log(f"  ❌ Error during safe playlist deletion: {e}")
         if backup_file:
@@ -310,7 +314,7 @@ def list_backups(playlist_id: Optional[str] = None) -> List[Path]:
     Returns:
         List of backup file paths
     """
-    backups = sorted(BACKUP_DIR.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+    backups = sorted(_get_backup_dir().glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
     
     if playlist_id:
         # Filter by playlist ID
@@ -329,16 +333,17 @@ def cleanup_old_backups(keep_days: int = 30) -> int:
     Returns:
         Number of backups deleted
     """
+    from .sync import log, verbose_log
     cutoff = datetime.now().timestamp() - (keep_days * 24 * 60 * 60)
     deleted = 0
-    
-    for backup_file in BACKUP_DIR.glob("*.json"):
+
+    for backup_file in _get_backup_dir().glob("*.json"):
         if backup_file.stat().st_mtime < cutoff:
             try:
                 backup_file.unlink()
                 deleted += 1
-            except Exception as e:
-                verbose_log(f"  Failed to delete old backup {backup_file.name}: {e}")
+            except Exception:
+                pass
     
     if deleted > 0:
         log(f"  🗑️  Cleaned up {deleted} old backup(s) (older than {keep_days} days)")

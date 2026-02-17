@@ -20,14 +20,10 @@ from .settings import (
     ENABLE_MOST_PLAYED,
     ENABLE_DISCOVERY,
     PREFIX_MONTHLY,
-    PREFIX_GENRE_MONTHLY,
     PREFIX_YEARLY,
-    PREFIX_GENRE_MASTER,
     PREFIX_MOST_PLAYED,
     PREFIX_DISCOVERY,
     MONTHLY_NAME_TEMPLATE,
-    GENRE_NAME_TEMPLATE,
-    GENRE_MONTHLY_TEMPLATE,
     DATE_FORMAT,
     SEPARATOR_MONTH,
     SEPARATOR_PREFIX,
@@ -36,10 +32,7 @@ from .settings import (
     MONTH_NAMES_MEDIUM,
     MONTH_NAMES,
     DESCRIPTION_TEMPLATE,
-    DESCRIPTION_TOP_GENRES,
     SPOTIFY_MAX_DESCRIPTION_LENGTH,
-    SPOTIFY_MAX_GENRE_TAGS,
-    SPOTIFY_MAX_GENRE_TAG_LENGTH,
     MOOD_MAX_TAGS,
     DEFAULT_DISCOVERY_TRACK_LIMIT,
 )
@@ -48,6 +41,7 @@ from .api import api_call, get_spotify_client, _chunked
 from .catalog import (
     get_existing_playlists,
     get_playlist_tracks,
+    get_liked_song_uris,
     get_user_info,
     _invalidate_playlist_cache,
     _load_genre_data,
@@ -63,20 +57,9 @@ from .tracks import (
     _get_all_track_genres,
     _get_primary_artist_genres,
 )
-from .descriptions import (
-    _get_genres_from_track_uris,
-    _get_genre_emoji,
-    _format_genre_tags,
-    _add_genre_tags_to_description,
-    _update_playlist_description_with_genres,
-)
-from .mood import run_mood_inference_on_sync
-from .genre_compute import compute_track_genres_incremental
+from .descriptions import _update_playlist_description_with_genres
 from .workflow import sync_full_library, sync_export_data
-from .renames import (
-    rename_playlists_with_old_prefixes,
-    fix_incorrectly_named_yearly_genre_playlists,
-)
+from .renames import rename_playlists_with_old_prefixes
 from .history import (
     get_most_played_tracks,
     get_time_based_tracks,
@@ -99,14 +82,10 @@ __all__ = [
     "ENABLE_MOST_PLAYED",
     "ENABLE_DISCOVERY",
     "PREFIX_MONTHLY",
-    "PREFIX_GENRE_MONTHLY",
     "PREFIX_YEARLY",
-    "PREFIX_GENRE_MASTER",
     "PREFIX_MOST_PLAYED",
     "PREFIX_DISCOVERY",
     "MONTHLY_NAME_TEMPLATE",
-    "GENRE_NAME_TEMPLATE",
-    "GENRE_MONTHLY_TEMPLATE",
     "DATE_FORMAT",
     "SEPARATOR_MONTH",
     "SEPARATOR_PREFIX",
@@ -115,10 +94,7 @@ __all__ = [
     "MONTH_NAMES_MEDIUM",
     "MONTH_NAMES",
     "DESCRIPTION_TEMPLATE",
-    "DESCRIPTION_TOP_GENRES",
     "SPOTIFY_MAX_DESCRIPTION_LENGTH",
-    "SPOTIFY_MAX_GENRE_TAGS",
-    "SPOTIFY_MAX_GENRE_TAG_LENGTH",
     "MOOD_MAX_TAGS",
     "DEFAULT_DISCOVERY_TRACK_LIMIT",
     "log",
@@ -132,6 +108,7 @@ __all__ = [
     "_chunked",
     "get_existing_playlists",
     "get_playlist_tracks",
+    "get_liked_song_uris",
     "get_user_info",
     "_invalidate_playlist_cache",
     "_load_genre_data",
@@ -144,17 +121,10 @@ __all__ = [
     "_parse_genres",
     "_get_all_track_genres",
     "_get_primary_artist_genres",
-    "_get_genres_from_track_uris",
-    "_get_genre_emoji",
-    "_format_genre_tags",
-    "_add_genre_tags_to_description",
     "_update_playlist_description_with_genres",
-    "run_mood_inference_on_sync",
-    "compute_track_genres_incremental",
     "sync_full_library",
     "sync_export_data",
     "rename_playlists_with_old_prefixes",
-    "fix_incorrectly_named_yearly_genre_playlists",
     "get_most_played_tracks",
     "get_time_based_tracks",
     "get_repeat_tracks",

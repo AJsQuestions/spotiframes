@@ -136,7 +136,7 @@ def time_features(
     
     df = wide.copy()
     df[added_at_col] = pd.to_datetime(df[added_at_col], errors="coerce", utc=True)
-    now = pd.Timestamp.utcnow()
+    now = pd.Timestamp.now("UTC")
     df["age_days"] = (now - df[added_at_col]).dt.total_seconds() / 86400.0
     
     g = df.groupby(playlist_col)["age_days"].agg(["mean", "median", "min", "max"]).reset_index()

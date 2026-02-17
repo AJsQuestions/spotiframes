@@ -13,7 +13,7 @@ class TestSpotim8(unittest.TestCase):
         # Create a temporary directory for cache
         self.test_dir = tempfile.mkdtemp()
         self.cache_config = CacheConfig(enabled=True, dir=Path(self.test_dir))
-        
+
         # Mock Spotipy client
         self.mock_sp = MagicMock()
         self.sf = Spotim8(sp=self.mock_sp, cache=self.cache_config)
@@ -33,10 +33,10 @@ class TestSpotim8(unittest.TestCase):
         self.mock_sp.current_user_saved_tracks.return_value = {"total": 0}
         self.mock_sp.me.return_value = {"id": "test_user"}
         self.mock_sp.current_user.return_value = {"id": "test_user"}
-        
+
         # Force fetch
         df = self.sf.playlists(force=True)
-        
+
         # Should contain at least Liked Songs playlist
         self.assertIsInstance(df, pd.DataFrame)
         self.assertEqual(len(df), 1)
@@ -63,17 +63,17 @@ class TestSpotim8(unittest.TestCase):
         self.mock_sp.current_user_saved_tracks.return_value = {"total": 5}
         self.mock_sp.me.return_value = {"id": "test_user"}
         self.mock_sp.current_user.return_value = {"id": "test_user"}
-        
+
         # Force fetch
         df = self.sf.playlists(force=True)
-        
+
         self.assertEqual(len(df), 2) # Liked songs + 1 playlist
-        
+
         # Check Liked Songs
         liked = df[df["is_liked_songs"]]
         self.assertEqual(len(liked), 1)
         self.assertEqual(liked.iloc[0]["track_count"], 5)
-        
+
         # Check regular playlist
         pl = df[~df["is_liked_songs"]]
         self.assertEqual(len(pl), 1)

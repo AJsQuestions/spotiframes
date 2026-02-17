@@ -102,24 +102,5 @@ def rename_playlists_with_old_prefixes(sp: spotipy.Spotify) -> None:
 
 
 def fix_incorrectly_named_yearly_genre_playlists(sp: spotipy.Spotify) -> None:
-    """Fix yearly genre playlists that were incorrectly named using GENRE_MONTHLY_TEMPLATE.
-
-    This fixes playlists that were created with the monthly template (which includes {mon})
-    but should have been created with the yearly template.
-    """
-    log("\n--- Fixing Incorrectly Named Yearly Genre Playlists ---")
-
-    existing = get_existing_playlists(sp, force_refresh=True)
-    user = get_user_info(sp)
-    user_id = user["id"]
-
-    renamed_count = 0
-    template_placeholders = ["{mon}", "{year}", "{prefix}", "{genre}", "{owner}"]
-
-    for name, playlist_id in list(existing.items()):
-        if any(ph in name for ph in template_placeholders):
-            # Placeholder: would need genre/year extraction and format_yearly_playlist_name
-            # to compute correct new name; skip for now to avoid incorrect renames
-            log(f"  ⚠️  Skipping playlist with placeholder in name: {name}")
-    if renamed_count > 0:
-        log(f"  ✅ Fixed {renamed_count} playlist(s)")
+    """No-op: genre support removed."""
+    pass

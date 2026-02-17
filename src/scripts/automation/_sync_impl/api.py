@@ -44,6 +44,8 @@ def get_spotify_client() -> spotipy.Spotify:
     """
     Get authenticated Spotify client.
     Uses refresh token if available (CI/CD), otherwise interactive auth.
+    When SPOTIPY_REFRESH_TOKEN is set, the token is cached and the auth manager
+    is used so the client can auto-refresh when the access token expires.
     """
     client_id = os.environ.get("SPOTIPY_CLIENT_ID")
     client_secret = os.environ.get("SPOTIPY_CLIENT_SECRET")
@@ -56,24 +58,31 @@ def get_spotify_client() -> spotipy.Spotify:
             "Set them in environment variables or .env file."
         )
 
-    scopes = "user-library-read playlist-modify-private playlist-modify-public playlist-read-private"
+    scopes = (
+        "user-library-read playlist-modify-private playlist-modify-public "
+        "playlist-read-private playlist-read-collaborative "
+        "user-read-email user-read-private"
+    )
+    cache_path = str(settings.DATA_DIR / ".cache")
 
     if refresh_token:
         auth = SpotifyOAuth(
             client_id=client_id,
             client_secret=client_secret,
             redirect_uri=redirect_uri,
-            scope=scopes
+            scope=scopes,
+            cache_path=cache_path,
         )
         token_info = auth.refresh_access_token(refresh_token)
-        return spotipy.Spotify(auth=token_info["access_token"])
+        auth.cache_handler.save_token_to_cache(token_info)
+        return spotipy.Spotify(auth_manager=auth)
     else:
         auth = SpotifyOAuth(
             client_id=client_id,
             client_secret=client_secret,
             redirect_uri=redirect_uri,
             scope=scopes,
-            cache_path=str(settings.DATA_DIR / ".cache")
+            cache_path=cache_path,
         )
         return spotipy.Spotify(auth_manager=auth)
 

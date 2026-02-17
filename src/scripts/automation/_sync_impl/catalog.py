@@ -1,5 +1,5 @@
 """
-Sync catalog: playlists, playlist tracks, user info, genre data.
+Sync catalog: playlists, playlist tracks, user info.
 
 In-memory caches for the duration of a run; invalidate after modifying playlists.
 """
@@ -40,6 +40,7 @@ def get_existing_playlists(sp: spotipy.Spotify, force_refresh: bool = False) -> 
 
     logger.verbose_log(f"Fetching playlists from API (force_refresh={force_refresh})...")
     mapping = {}
+    duplicates = []
     offset = 0
     while True:
         page = api.api_call(
@@ -48,10 +49,20 @@ def get_existing_playlists(sp: spotipy.Spotify, force_refresh: bool = False) -> 
             offset=offset,
         )
         for item in page.get("items", []):
-            mapping[item["name"]] = item["id"]
+            name = item["name"]
+            if name in mapping:
+                duplicates.append(name)
+            mapping[name] = item["id"]
         if not page.get("next"):
             break
         offset += settings.SPOTIFY_API_PAGINATION_LIMIT
+
+    if duplicates:
+        unique_dupes = sorted(set(duplicates))
+        logger.verbose_log(
+            f"  ⚠️  {len(unique_dupes)} playlist name(s) appear multiple times: "
+            f"{', '.join(unique_dupes[:5])}{'...' if len(unique_dupes) > 5 else ''}"
+        )
 
     _playlist_cache = mapping
     _playlist_cache_valid = True
@@ -90,6 +101,33 @@ def get_playlist_tracks(sp: spotipy.Spotify, playlist_id: str, force_refresh: bo
         offset += 100
 
     _playlist_tracks_cache[playlist_id] = uris
+    return uris
+
+
+def get_liked_song_uris(sp: spotipy.Spotify) -> list:
+    """
+    Fetch all liked/saved track URIs via current_user_saved_tracks.
+    Use this instead of get_playlist_tracks(LIKED_SONGS_PLAYLIST_ID) since
+    Liked Songs is not a real playlist and has no playlist_items endpoint.
+    """
+    uris = []
+    offset = 0
+    limit = 50
+    while True:
+        page = api.api_call(
+            sp.current_user_saved_tracks,
+            limit=limit,
+            offset=offset,
+        )
+        items = page.get("items", [])
+        for it in items:
+            t = it.get("track") or {}
+            uri = t.get("uri")
+            if uri:
+                uris.append(uri)
+        if not items or len(items) < limit:
+            break
+        offset += limit
     return uris
 
 

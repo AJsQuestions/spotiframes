@@ -11,13 +11,102 @@ from collections import Counter
 
 from src.scripts.automation.config import (
     SPOTIFY_MAX_DESCRIPTION_LENGTH,
-    SPOTIFY_MAX_GENRE_TAGS,
-    SPOTIFY_MAX_GENRE_TAG_LENGTH,
     DESCRIPTION_TRUNCATE_MARGIN,
     ENABLE_MOOD_TAGS,
     MOOD_MAX_TAGS,
-    DESCRIPTION_TOP_GENRES,
+    DESCRIPTION_TEMPLATE,
+    OWNER_NAME,
+    PREFIX_MONTHLY,
+    PREFIX_MOST_PLAYED,
+    PREFIX_DISCOVERY,
+    PREFIX_YEARLY,
+    MONTH_NAMES_SHORT,
 )
+
+# Month abbreviations for parsing playlist names (order: try longest first for prefixes)
+_MONTH_ABBR = "Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec"
+
+
+def get_base_description_line_for_playlist(playlist_name: str) -> Optional[str]:
+    """
+    Derive a human-readable first line for known automated playlist name patterns.
+
+    Used when the current description is empty or exactly the playlist name, so
+    automated playlists get a proper first line (e.g. "Liked songs from Jan 26
+    (automatically updated)") instead of the raw name.
+
+    Recognized patterns (from config prefixes and templates):
+    - Monthly: {owner}{prefix}{mon}{year} -> "Liked songs from Jan 26"
+    - Yearly: {owner}{prefix}{year} -> "Liked songs from 2026"
+    - Most played: {owner}{prefix}{mon}{year} -> "Most played from Jan 26"
+    - Discovery: {owner}{prefix}{mon}{year} -> "Discovery from Jan 26"
+
+    Returns:
+        Human-readable base line, or None if the name does not match a known pattern.
+    """
+    if not playlist_name or not playlist_name.strip():
+        return None
+    name = playlist_name.strip()
+    owner = (OWNER_NAME or "").strip()
+    if not owner:
+        return None
+
+    # Build regex components; match case-insensitively for owner and prefix
+    month_part = rf"({_MONTH_ABBR})(\d{{2}})$"
+    year_only_part = r"(\d{2})$"  # 2-digit year at end
+    year_4_part = r"(\d{4})$"    # 4-digit year at end
+
+    # Monthly: owner + PREFIX_MONTHLY + Jan + 26
+    prefix = (PREFIX_MONTHLY or "").strip()
+    if prefix:
+        pattern = re.compile(
+            r"^" + re.escape(owner) + re.escape(prefix) + month_part,
+            re.IGNORECASE
+        )
+        m = pattern.match(name)
+        if m:
+            mon, yy = m.group(1), m.group(2)
+            return f"Liked songs from {mon} {yy}"
+
+    # Most played: owner + PREFIX_MOST_PLAYED + Jan + 26
+    prefix = (PREFIX_MOST_PLAYED or "").strip()
+    if prefix:
+        pattern = re.compile(
+            r"^" + re.escape(owner) + re.escape(prefix) + month_part,
+            re.IGNORECASE
+        )
+        m = pattern.match(name)
+        if m:
+            mon, yy = m.group(1), m.group(2)
+            return f"Most played from {mon} {yy}"
+
+    # Discovery: owner + PREFIX_DISCOVERY + Jan + 26
+    prefix = (PREFIX_DISCOVERY or "").strip()
+    if prefix:
+        pattern = re.compile(
+            r"^" + re.escape(owner) + re.escape(prefix) + month_part,
+            re.IGNORECASE
+        )
+        m = pattern.match(name)
+        if m:
+            mon, yy = m.group(1), m.group(2)
+            return f"Discovery from {mon} {yy}"
+
+    # Yearly: owner + PREFIX_YEARLY + 26 or 2026
+    prefix = (PREFIX_YEARLY or "").strip()
+    if prefix:
+        for part, is_4 in [(year_4_part, True), (year_only_part, False)]:
+            pattern = re.compile(
+                r"^" + re.escape(owner) + re.escape(prefix) + part,
+                re.IGNORECASE
+            )
+            m = pattern.match(name)
+            if m:
+                y = m.group(1)
+                year_full = y if is_4 else ("20" + y if len(y) == 2 else y)
+                return f"Liked songs from {year_full}"
+
+    return None
 
 
 def sanitize_description(description: str, max_length: int = SPOTIFY_MAX_DESCRIPTION_LENGTH) -> str:
@@ -52,18 +141,18 @@ def _strip_emoji_and_problematic(s: str) -> str:
     out = []
     for c in s:
         cat = unicodedata.category(c)
-        # Skip control and format (e.g. zero-width) and private use
-        if cat.startswith("C") or cat == "Cf" or cat == "Co":
-            continue
         cp = ord(c)
-        # Skip variation selectors (can break emoji sequences; remove whole thing)
+        # Skip control chars (Cc), format chars like zero-width (Cf), surrogates (Cs), private use (Co), unassigned (Cn)
+        if cat.startswith("C"):
+            continue
+        # Skip variation selectors (can break emoji sequences)
         if 0xFE00 <= cp <= 0xFE0F:
             continue
         # Skip symbol/other in emoji/symbol blocks (So with high codepoint = emoji)
         if cat == "So" and cp >= 0x1F300:
             continue
-        # Skip modifier letters/symbols in emoji range (e.g. skin tone)
-        if cat == "Sk" and cp >= 0x1F3FB and cp <= 0x1F3FF:
+        # Skip modifier symbols in emoji range (e.g. skin tone)
+        if cat == "Sk" and 0x1F3FB <= cp <= 0x1F3FF:
             continue
         out.append(c)
     return "".join(out)
@@ -114,111 +203,6 @@ def sanitize_description_for_api(description: str, max_length: int = SPOTIFY_MAX
     # Ensure valid UTF-8 (Spotify expects UTF-8)
     s = s.encode("utf-8", errors="replace").decode("utf-8")
     return s
-
-
-def format_genre_tags(
-    specific_genres_counter: Counter,
-    broad_genres_counter: Counter,
-    max_tags: int = SPOTIFY_MAX_GENRE_TAGS,
-    max_length: int = SPOTIFY_MAX_GENRE_TAG_LENGTH
-) -> str:
-    """
-    Format genre tags for playlist description.
-    
-    Prioritizes broad genres and shows the most common genres from tracks in the playlist.
-    
-    Args:
-        specific_genres_counter: Counter of specific genres (subgenres)
-        broad_genres_counter: Counter of broad genres
-        max_tags: Maximum number of tags to include
-        max_length: Maximum length of tag string
-    
-    Returns:
-        Formatted genre tag string showing most common genres
-    """
-    from src.scripts.automation.sync import _get_genre_emoji
-    
-    # Prioritize broad genres (most common first)
-    # Get top broad genres sorted by frequency
-    top_broad = broad_genres_counter.most_common(max_tags)
-    
-    # Build tag string from most common broad genres
-    tags = []
-    for genre, count in top_broad:
-        emoji = _get_genre_emoji(genre)
-        tags.append(f"{emoji} {genre}")
-    
-    # If we have space and no broad genres, fallback to specific genres
-    top_specific = specific_genres_counter.most_common(max_tags) if not tags else []
-    if not tags and top_specific:
-        for genre, count in top_specific:
-            emoji = _get_genre_emoji(genre)
-            tags.append(f"{emoji} {genre}")
-    
-    tag_str = " • ".join(tags[:max_tags])
-    
-    # Truncate if too long
-    if len(tag_str) > max_length:
-        tag_str = tag_str[:max_length - 10] + "..."
-    
-    return tag_str
-
-
-def add_genre_tags_to_description(
-    current_description: str,
-    track_uris: List[str],
-    max_tags: int = SPOTIFY_MAX_GENRE_TAGS
-) -> str:
-    """
-    Add genre tags to playlist description.
-    
-    Args:
-        current_description: Current playlist description
-        track_uris: List of track URIs in the playlist
-        max_tags: Maximum number of genre tags to add
-    
-    Returns:
-        Description with genre tags added
-    """
-    from src.scripts.automation.sync import _get_genres_from_track_uris
-    
-    # Get genres from tracks
-    specific_genres_counter, broad_genres_counter = _get_genres_from_track_uris(track_uris)
-    
-    # Format genre tags
-    genre_tags = format_genre_tags(specific_genres_counter, broad_genres_counter, max_tags=max_tags)
-    
-    if not genre_tags:
-        return current_description
-    
-    # Add genre tags section
-    if current_description:
-        # Check if genres section already exists
-        if "Genres:" in current_description or any(emoji in current_description for emoji in ["🎤", "🎧", "💃", "💜", "🎸", "🎶", "🎷"]):
-            # Replace existing genre section
-            lines = current_description.split("\n")
-            new_lines = []
-            skip_until_newline = False
-            for line in lines:
-                if "Genres:" in line or any(emoji in line for emoji in ["🎤", "🎧", "💃", "💜", "🎸", "🎶", "🎷"]):
-                    skip_until_newline = True
-                    new_lines.append(f"Genres: {genre_tags}")
-                elif skip_until_newline and line.strip() == "":
-                    skip_until_newline = False
-                    new_lines.append(line)
-                elif not skip_until_newline:
-                    new_lines.append(line)
-            result = "\n".join(new_lines)
-        else:
-            # Append genre tags
-            result = f"{current_description}\n\nGenres: {genre_tags}"
-    else:
-        result = f"Genres: {genre_tags}"
-
-    # Optionally add mood tags (Daylist-style)
-    if ENABLE_MOOD_TAGS and track_uris:
-        result = add_mood_tags_to_description(result, track_uris, max_tags=MOOD_MAX_TAGS)
-    return result
 
 
 def format_mood_tags(mood_list: List[str], max_tags: int = 5, max_length: int = 120) -> str:
@@ -299,62 +283,27 @@ def add_mood_tags_to_description(
     return mood_line
 
 
+def _strip_parentheses(text: str) -> str:
+    """Remove parenthetical segments and trim. No mood or genre; no parentheses in descriptions."""
+    if not text:
+        return text
+    # Remove (...) and [...] and any content inside
+    text = re.sub(r"\s*\([^)]*\)\s*", " ", text)
+    text = re.sub(r"\s*\[[^\]]*\]\s*", " ", text)
+    return " ".join(text.split()).strip()
+
+
 def build_simple_description(
     base_line: str,
     track_uris: List[str],
-    max_genre_tags: int = None,
     max_mood_tags: int = None,
     preview_urls: Optional[dict] = None,
     mood_cache_dir: Optional[str] = None,
     audio_features_fallback: Optional[list] = None,
 ) -> str:
     """
-    Build playlist description as: short log line + top genres + mood tags only.
-
-    Used for all playlists (including AJ automated). No rich statistics.
-    Mood: Music2Emo when preview_urls provided; else valence/energy fallback when audio_features_fallback provided.
-
-    Args:
-        base_line: First line (e.g. "Liked songs from Jan 2025 (automatically updated)" or playlist name).
-        track_uris: List of track URIs in the playlist.
-        max_genre_tags: Max genre tags (default DESCRIPTION_TOP_GENRES).
-        max_mood_tags: Max mood tags (default MOOD_MAX_TAGS).
-        preview_urls: Dict track_uri -> preview_url for Music2Emo (required for mood when no fallback).
-        mood_cache_dir: Optional path to cache Music2Emo results.
-        audio_features_fallback: Optional list of sp.audio_features() dicts (same order as track_uris) for mood when no preview URLs.
-
-    Returns:
-        Description string: base_line + "\\n\\nGenres: ..." + "\\nMoods: ..."
+    Build playlist description: single base line, no mood or genre.
+    Parentheses are stripped from the result.
     """
-    if max_genre_tags is None:
-        max_genre_tags = DESCRIPTION_TOP_GENRES
-    if max_mood_tags is None:
-        max_mood_tags = MOOD_MAX_TAGS
-
-    from pathlib import Path
-    from src.scripts.automation.sync import _get_genres_from_track_uris
-    from src.features.mood_inference import get_mood_tags_for_playlist
-
-    specific_genres_counter, broad_genres_counter = _get_genres_from_track_uris(track_uris)
-    genre_tags = format_genre_tags(
-        specific_genres_counter, broad_genres_counter,
-        max_tags=max_genre_tags, max_length=SPOTIFY_MAX_GENRE_TAG_LENGTH
-    )
-    cache_path = Path(mood_cache_dir) if mood_cache_dir else None
-    mood_list = []
-    if ENABLE_MOOD_TAGS:
-        mood_list = get_mood_tags_for_playlist(
-            track_uris,
-            preview_urls or {},
-            max_tags=max_mood_tags,
-            mood_cache_dir=cache_path,
-            audio_features_fallback=audio_features_fallback,
-        )
-    mood_tags = format_mood_tags(mood_list, max_tags=max_mood_tags) if mood_list else ""
-
-    parts = [base_line.strip()]
-    if genre_tags:
-        parts.append(f"Genres: {genre_tags}")
-    if mood_tags:
-        parts.append(f"Moods: {mood_tags}")
-    return "\n".join(parts)
+    line = _strip_parentheses(base_line.strip()) if base_line else ""
+    return line

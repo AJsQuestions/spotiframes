@@ -1,21 +1,18 @@
 """
 Sync workflow: full library sync and export data sync.
 
-Orchestrates spotim8 library sync, genre inference, and optional export data sync.
+Orchestrates spotim8 library sync and optional export data sync.
+Genre inference has been removed; playlist classification uses Spotify artist genres only.
 """
 
-import os
 from pathlib import Path
-
-import pandas as pd
 
 from src import Spotim8, CacheConfig, set_response_cache, sync_all_export_data
 from src.scripts.automation.error_handling import handle_errors
-from src.scripts.common.config_helpers import parse_bool_env as _parse_bool_env
+from src.scripts.common.config_helpers import parse_bool_env
 
 from .logger import log, verbose_log, timed_step
 from .settings import DATA_DIR
-from .genre_compute import compute_track_genres_incremental
 
 
 @handle_errors(reraise=True, log_error=True)
@@ -52,11 +49,13 @@ def sync_full_library(force: bool = False) -> bool:
             verbose_log(f"Cache directory: {DATA_DIR}")
             verbose_log(f"API cache directory: {api_cache_dir}")
 
+        owned_only = parse_bool_env("SYNC_OWNED_ONLY", True)
+        include_liked_songs = parse_bool_env("SYNC_INCLUDE_LIKED_SONGS", True)
         with timed_step("Spotify Library Sync (API calls)"):
             stats = sf.sync(
                 force=force,
-                owned_only=True,
-                include_liked_songs=True,
+                owned_only=owned_only,
+                include_liked_songs=include_liked_songs,
             )
 
         with timed_step("Load All Playlists"):
@@ -78,49 +77,6 @@ def sync_full_library(force: bool = False) -> bool:
         else:
             log("✅ No changes detected - using cached derived tables")
             verbose_log(f"Stats: {stats}")
-
-        if stats and stats.get("tracks_added", 0) == 0 and stats.get("playlists_updated", 0) == 0:
-            log("  ⏭️  Skipping genre inference (no changes detected - using cached data)")
-        else:
-            with timed_step("Genre Inference Check"):
-                try:
-                    try:
-                        verbose_log("Loading tracks.parquet with pyarrow engine...")
-                        tracks_check = pd.read_parquet(DATA_DIR / "tracks.parquet", engine="pyarrow")
-                        verbose_log(f"Loaded {len(tracks_check):,} tracks using pyarrow")
-                    except Exception:
-                        verbose_log("Loading tracks.parquet with default engine (pyarrow not available)...")
-                        tracks_check = pd.read_parquet(DATA_DIR / "tracks.parquet")
-                        verbose_log(f"Loaded {len(tracks_check):,} tracks using default engine")
-
-                    tracks_needing = tracks_check[
-                        tracks_check["genres"].apply(
-                            lambda g: g is None
-                            or (isinstance(g, list) and len(g) == 0)
-                            or (pd.api.types.is_scalar(g) and pd.isna(g))
-                        )
-                    ]
-                    if len(tracks_needing) == 0:
-                        log("  ⏭️  Skipping genre inference (all tracks already have genres)")
-                    else:
-                        max_tracks_for_inference = int(
-                            os.environ.get("MAX_TRACKS_FOR_INFERENCE", "10000")
-                        )
-                        enable_inference = _parse_bool_env("ENABLE_GENRE_INFERENCE", True)
-
-                        if not enable_inference:
-                            log("  ⏭️  Skipping genre inference (disabled via ENABLE_GENRE_INFERENCE)")
-                        elif len(tracks_needing) > max_tracks_for_inference:
-                            log(
-                                f"  ⏭️  Skipping genre inference ({len(tracks_needing):,} tracks need inference - exceeds limit of {max_tracks_for_inference:,})"
-                            )
-                            log("      Set MAX_TRACKS_FOR_INFERENCE env var to increase limit")
-                        else:
-                            with timed_step("Genre Inference Processing"):
-                                log(f"  🔄 Processing genre inference for {len(tracks_needing):,} tracks...")
-                                compute_track_genres_incremental(stats)
-                except Exception as e:
-                    log(f"  ⏭️  Skipping genre inference (error: {e})")
 
         with timed_step("Sync Export Data"):
             try:

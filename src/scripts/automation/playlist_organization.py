@@ -127,16 +127,16 @@ def find_stale_playlists(
         List of (playlist_id, playlist_name, days_since_update) tuples
     """
     stale = []
-    cutoff_date = datetime.now() - timedelta(days=days_threshold)
-    
+    cutoff_date = pd.Timestamp.now("UTC") - timedelta(days=days_threshold)
+
     for _, playlist in playlists_df.iterrows():
         playlist_id = playlist["playlist_id"]
         tracks = playlist_tracks_df[playlist_tracks_df["playlist_id"] == playlist_id]
-        
+
         if not tracks.empty and "added_at" in tracks.columns:
-            latest = pd.to_datetime(tracks["added_at"]).max()
+            latest = pd.to_datetime(tracks["added_at"], utc=True).max()
             if latest < cutoff_date:
-                days_ago = (datetime.now() - latest.to_pydatetime()).days
+                days_ago = (pd.Timestamp.now("UTC") - latest).days
                 stale.append((playlist_id, playlist.get("name", "Unknown"), days_ago))
     
     return stale

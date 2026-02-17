@@ -17,8 +17,6 @@ from collections import Counter, defaultdict
 import math
 
 from .sync import DATA_DIR, log, verbose_log
-from src.features.genres import get_all_broad_genres
-
 
 def calculate_playlist_similarity(
     playlist1_tracks: Set[str],
@@ -159,7 +157,11 @@ def suggest_playlist_merge_candidates(
     suggestions = []
     
     # Get owned playlists only
-    owned = playlists_df[playlists_df.get("is_owned", False) == True].copy()
+    owned = (
+        playlists_df[playlists_df["is_owned"] == True].copy()
+        if "is_owned" in playlists_df.columns
+        else playlists_df.copy()
+    )
     
     # Build track sets
     playlist_tracks = {}
@@ -223,7 +225,11 @@ def generate_listening_insights_report(
     report_lines.append("")
     
     # Library statistics
-    total_playlists = len(playlists_df[playlists_df.get("is_owned", False) == True])
+    total_playlists = (
+        len(playlists_df[playlists_df["is_owned"] == True])
+        if "is_owned" in playlists_df.columns
+        else len(playlists_df)
+    )
     total_tracks = len(playlist_tracks_df)
     unique_tracks = playlist_tracks_df["track_id"].nunique()
     

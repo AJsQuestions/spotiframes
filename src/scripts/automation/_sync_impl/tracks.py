@@ -91,29 +91,12 @@ def _get_preview_urls_for_tracks(sp: spotipy.Spotify, track_uris: list) -> dict:
 
 def _get_audio_features_for_tracks(sp: spotipy.Spotify, track_uris: list) -> list:
     """
-    Fetch Audio Features (valence, energy) for tracks via Spotify API (batches of 100).
-    Returns list in same order as track_uris; None for missing/failed.
+    Audio Features (valence, energy) are no longer available from Spotify's API (deprecated Nov 2024).
+    Returns empty list so callers use preview-URL-based mood only; no API calls.
     """
-    from .api import _chunked
-    from . import logger
-
-    if not track_uris:
-        return []
-    track_ids = [_uri_to_track_id(u) for u in track_uris if u and "spotify:track:" in str(u)]
-    if not track_ids:
-        return []
-    out = []
-    for chunk in _chunked(track_ids, 100):
-        try:
-            result = api.api_call(sp.audio_features, chunk)
-            if result and isinstance(result, list):
-                out.extend(result)
-            else:
-                out.extend([None] * len(chunk))
-        except Exception as e:
-            logger.verbose_log(f"  Audio features batch failed (API may be restricted): {e}")
-            out.extend([None] * len(chunk))
-    return out[: len(track_ids)]
+    # Spotify deprecated /v1/audio-features in November 2024; endpoint returns 403.
+    # Mood fallback is disabled; descriptions use preview URLs for mood when available.
+    return []
 
 
 def _get_all_track_genres(track_id: str, track_artists, artist_genres_map: dict) -> list:

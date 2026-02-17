@@ -1,6 +1,6 @@
 # Automation & Scheduled Syncs
 
-SpotiM8 supports fully automated daily syncs via cron jobs.
+SpotiM8 v6 maintains yearly archive playlists only (Finds, Top, Discovery per year). Automated daily syncs run via cron to keep your library and current-year playlists up to date.
 
 ## Cron Job Setup
 
@@ -75,16 +75,16 @@ Get email notifications after each sync run. Configure in your `.env` file:
 
 ```bash
 # Full sync + playlist update (default)
-python src/scripts/automation/sync.py
+python -m src.scripts.automation.sync
 
 # Skip sync, only update playlists (fast, uses existing data)
-python src/scripts/automation/sync.py --skip-sync
+python -m src.scripts.automation.sync --skip-sync
 
 # Sync only, don't update playlists
-python src/scripts/automation/sync.py --sync-only
+python -m src.scripts.automation.sync --sync-only
 
-# Process all months, not just current month
-python src/scripts/automation/sync.py --all-months
+# Run specific steps only
+python -m src.scripts.automation.sync --steps sync,update_current_year,descriptions
 ```
 
 ## Troubleshooting

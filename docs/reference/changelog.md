@@ -5,14 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.0.0] - 2026-02-07
+
+### 🎉 Major Release: SpotiM8 v6 — Yearly Archive Playlists Only
+
+**Scope:** SpotiM8 v6 maintains **only yearly archive playlists**. One Finds (liked songs), Top (most played), and Discovery (new tracks) playlist per year. No monthly playlists, no genre playlists. Current year playlists are updated each sync with new liked/most-played/discovery. Pipeline: sync → rename → delete_monthly_and_genre → consolidate → update_current_year → descriptions (optional health/insights).
+
+### Changed
+- **Version 6.0.0** - Project and docs updated to reflect yearly-archive-only scope
+- **README & docs** - Tagline and features rewritten around "yearly archive playlists"
+- **Package description** - Aligned with v6 scope
+
+---
+
 ## [5.0.0] - 2025-01-30
 
 ### 🎉 Major Release: SpotiM8 v5.0 — Professional SaaS-Grade Refactor
 
+**Scope (v5):** Yearly playlists only (Finds, Top, Discovery per year). No monthly retention, no genre playlists or genre tags in descriptions.
+
 ### Added
-- **Streamlit Dashboard** - Minimal GUI for sync, reports, and playlist operations (`streamlit run dashboard/app.py`)
 - **src/data Package** - `export_table()` and `MarketFrames` for CLI export and market (browse/search) commands
-- **_sync_impl Package** - Sync logic split into `mood`, `genre_compute`, `workflow`, `renames`, `history` for single source of truth
+- **_sync_impl Package** - Sync logic split into `mood`, `workflow`, `renames`, `history`, `descriptions`, etc. (single source of truth; genre_compute removed)
 - **Canonical Paths** - `project_path.get_project_root()` and `get_data_dir()`; data folder lives under SPOTIM8 by default
 - **Analysis-Only Notebooks** - 5 demonstrative notebooks (library, playlist, listening history, redundant playlists, crashes); sync/automation removed from notebooks
 
@@ -23,8 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **notebook_helpers** - Sync/credential helpers removed; `get_data_dir()` added; view helpers for library overview, top artists, popularity, release years
 
 ### Removed
+- **Streamlit dashboard** - Dashboard support removed; sync and automation via CLI only
 - Duplicate definitions in sync.py (mood, genre compute, workflow, renames, history); all from _sync_impl
-- Automation from notebooks (handled by CLI and dashboard)
+- Automation from notebooks (handled by CLI)
 
 ---
 

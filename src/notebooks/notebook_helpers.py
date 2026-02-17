@@ -2,7 +2,7 @@
 Notebook helpers for analysis notebooks.
 
 Analysis logic lives here; notebooks are demonstrative and call these functions
-for views, analysis, and visualization. Sync/automation is handled by CLI/dashboard.
+for views, analysis, and visualization. Sync/automation is handled by CLI.
 """
 
 import os
@@ -49,6 +49,41 @@ def setup_project(project_root: Optional[Path] = None) -> Path:
         sys.path.insert(0, str(project_root))
     print(f"✅ Project root: {project_root}")
     return project_root
+
+
+def setup_standalone() -> Tuple[Path, Path]:
+    """
+    Detect project root and data dir from current working directory.
+    Use in notebooks so they work when run from project root or from src/notebooks.
+    Returns (PROJECT_ROOT, DATA_DIR).
+    """
+    cwd = Path.cwd()
+    # Running from project root (e.g. Jupyter opened at repo root)
+    nb_dir = cwd / "src" / "notebooks"
+    if (nb_dir / "notebook_helpers.py").exists():
+        project_root = cwd
+        if str(project_root) not in sys.path:
+            sys.path.insert(0, str(project_root))
+        if str(nb_dir) not in sys.path:
+            sys.path.insert(0, str(nb_dir))
+        data_dir = project_root / "data"
+        print(f"✅ Project root: {project_root}")
+        print(f"✅ Data dir: {data_dir} (exists: {data_dir.exists()})")
+        return project_root, data_dir
+    # Running from src/notebooks (e.g. kernel started inside notebooks folder)
+    if (cwd / "notebook_helpers.py").exists():
+        project_root = cwd.parent.parent
+        if str(project_root) not in sys.path:
+            sys.path.insert(0, str(project_root))
+        data_dir = project_root / "data"
+        print(f"✅ Project root: {project_root}")
+        print(f"✅ Data dir: {data_dir} (exists: {data_dir.exists()})")
+        return project_root, data_dir
+    # Fallback: assume cwd is project root
+    data_dir = cwd / "data"
+    print(f"✅ Project root: {cwd} (assumed)")
+    print(f"✅ Data dir: {data_dir} (exists: {data_dir.exists()})")
+    return cwd, data_dir
 
 
 def get_data_dir(project_root: Optional[Path] = None) -> Path:

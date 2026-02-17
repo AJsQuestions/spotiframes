@@ -18,6 +18,8 @@ except ImportError:
 _log_buffer = []
 # Global verbose flag (set by CLI)
 _verbose = False
+# Cached email-enabled check (None = not yet checked)
+_email_enabled_cache = None
 
 
 def set_verbose(value: bool) -> None:
@@ -37,18 +39,24 @@ def get_log_buffer() -> list:
 
 
 def _is_email_enabled() -> bool:
-    """Lazy check: email available and enabled."""
+    """Cached check: email available and enabled. Only evaluates once per process."""
+    global _email_enabled_cache
+    if _email_enabled_cache is not None:
+        return _email_enabled_cache
     try:
         import importlib.util
-        parent = Path(__file__).resolve().parent.parent
-        p = parent / "email_notify.py"
+        # email_notify.py lives in the automation/ directory (parent of _sync_impl/)
+        p = Path(__file__).resolve().parent.parent / "email_notify.py"
         if not p.exists():
+            _email_enabled_cache = False
             return False
         spec = importlib.util.spec_from_file_location("email_notify", p)
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
-        return getattr(mod, "is_email_enabled", lambda: False)()
+        _email_enabled_cache = getattr(mod, "is_email_enabled", lambda: False)()
+        return _email_enabled_cache
     except Exception:
+        _email_enabled_cache = False
         return False
 
 

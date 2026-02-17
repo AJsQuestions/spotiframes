@@ -11,15 +11,17 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Optional
 
-from .sync import DATA_DIR
-
-BACKUP_DIR = DATA_DIR / ".backups"
-BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+def _get_backup_dir() -> Path:
+    """Get the backup directory, creating it lazily."""
+    from .sync import DATA_DIR
+    backup_dir = DATA_DIR / ".backups"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    return backup_dir
 
 
 def list_backups(playlist_id: Optional[str] = None, limit: int = 20) -> List[Path]:
     """List available backups."""
-    backups = sorted(BACKUP_DIR.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+    backups = sorted(_get_backup_dir().glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
     
     if playlist_id:
         backups = [b for b in backups if playlist_id[:8] in b.name]

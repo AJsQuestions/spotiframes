@@ -86,7 +86,8 @@ def load_extended_streaming_history(extended_history_dir: Path) -> Optional[pd.D
     
     # Filter meaningful plays
     df = df[df['ms_played'] >= 30000]  # At least 30 seconds
-    df = df[~df['skipped']]  # Not skipped
+    if 'skipped' in df.columns:
+        df = df[~df['skipped'].fillna(False)]  # Not skipped (treat NaN as not skipped)
     
     # Standardize column names
     df = df.rename(columns={

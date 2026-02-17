@@ -6,6 +6,7 @@ Provides exponential backoff, retry logic, and response caching to handle 429 ra
 
 from __future__ import annotations
 
+import sys
 import time
 import random
 import hashlib
@@ -105,28 +106,40 @@ def rate_limited_call(
         SpotifyException: If a non-429 Spotify error occurs
     """
     # Check cache first
+    cache_key = None
     if use_cache and RESPONSE_CACHE_DIR:
         cache_key = _cache_key(func.__name__, args, kwargs)
         cached = _get_cached_response(cache_key)
         if cached is not None:
             return cached
-    
+
     for attempt in range(max_retries):
         try:
             time.sleep(delay)
             result = func(*args, **kwargs)
-            
+
             # Cache successful response
-            if use_cache and RESPONSE_CACHE_DIR:
+            if cache_key is not None:
                 _save_cached_response(cache_key, result)
-            
+
             return result
         except SpotifyException as e:
             if e.http_status == 429:
                 wait_time = _calculate_wait_time(e, attempt)
                 if verbose:
-                    print(f"⏳ Rate limited. Waiting {wait_time:.0f}s before retry ({attempt + 1}/{max_retries})...")
-                time.sleep(wait_time)
+                    msg = f"⏳ Rate limited. Waiting {wait_time:.0f}s before retry ({attempt + 1}/{max_retries})...\n"
+                    sys.stderr.write(msg)
+                    sys.stderr.flush()
+                # For long waits, sleep in chunks and show remaining so the terminal doesn't look stuck
+                end = time.monotonic() + wait_time
+                while time.monotonic() < end:
+                    remaining = end - time.monotonic()
+                    chunk = min(10, remaining)
+                    time.sleep(chunk)
+                    remaining = max(0, end - time.monotonic())
+                    if remaining > 0 and verbose and chunk >= 10:
+                        sys.stderr.write(f"   ... {remaining:.0f}s remaining\n")
+                        sys.stderr.flush()
             else:
                 raise
     

@@ -1,6 +1,6 @@
 # 🚀 Production-Grade Features & Enhancements
 
-This document outlines the production-grade improvements and aesthetic enhancements added to SpotiM8.
+This document outlines production-grade improvements and enhancements in SpotiM8 v6 (yearly archive playlists only).
 
 ## 📋 Overview
 
@@ -64,16 +64,15 @@ Playlists now automatically include rich descriptions with:
 - **📊 Statistics**: Track count, total duration, average popularity
 - **📅 Metadata**: Release year range
 - **🎤 Top Artists**: Most featured artists
-- **🎵 Genre Tags**: Formatted genre tags with emojis
+- **✨ Optional**: Mood or other tags (no genre tags)
 
 **Example Description:**
 ```
-Liked songs from Dec 2025 (automatically updated)
+Liked songs 2025 (automatically updated)
 
 📊 234 tracks | ⏱️ 15.2 hr | ⭐ 67/100
 📅 2018-2024
 🎤 Drake, The Weeknd, Post Malone
-🎤 Hip-Hop, R&B/Soul, Pop, Electronic
 ```
 
 **Enable in `.env`:**
@@ -117,12 +116,12 @@ Comprehensive health checks for your playlist library:
 
 ```bash
 # Run all health checks
-python src/scripts/automation/health_check.py --all
+python -m src.scripts.automation.health_check --all
 
 # Specific checks
-python src/scripts/automation/health_check.py --empty      # Empty playlists
-python src/scripts/automation/health_check.py --stale       # Stale playlists
-python src/scripts/automation/health_check.py --duplicates  # Duplicate tracks
+python -m src.scripts.automation.health_check --empty      # Empty playlists
+python -m src.scripts.automation.health_check --stale       # Stale playlists
+python -m src.scripts.automation.health_check --duplicates  # Duplicate tracks
 ```
 
 **Checks Performed:**
@@ -137,11 +136,10 @@ python src/scripts/automation/health_check.py --duplicates  # Duplicate tracks
 **New Module:** `src/scripts/automation/playlist_organization.py`
 
 Automatic categorization into:
-- **Automated**: Auto-generated playlists (monthly, yearly)
+- **Automated**: Auto-generated playlists (yearly Finds, Top, Discovery)
 - **Manual**: User-created playlists
 - **Favorites**: Liked songs and favorites
 - **Discovery**: Discovery and new music playlists
-- **Genre**: Genre-specific playlists
 - **Time-based**: Time-based playlists (Top, etc.)
 
 ### Organization Report

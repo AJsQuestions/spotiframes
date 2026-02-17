@@ -1,29 +1,20 @@
-# 🎵 SpotiM8 v5.0.0
+# 🎵 SpotiM8 v6.0.0
 
-**Professional Spotify analytics platform** with **automated playlist management**, **CLI**, **dashboard**, and **streaming history integration**.
+**Spotify library sync and yearly archive playlists.** Tidy DataFrames, CLI, and streaming history.
 
-Turn your Spotify library into tidy DataFrames, analyze your listening habits, and automatically organize your music into smart playlists based on both your library and actual listening patterns.
+SpotiM8 v6 maintains **only yearly archive playlists**: one **Finds** (liked songs), **Top** (most played), and **Discovery** (new tracks) playlist per year. Sync updates the current year with new liked/most-played/discovery and keeps a local parquet cache for analysis.
 
 ## ✨ Features
 
 - 📊 **Pandas DataFrames** - Your library as tidy, mergeable tables
-- 📅 **3 Core Playlist Types** - Finds (liked songs), Top (most played), and Discovery (new tracks)
-- 🎸 **Genre-Split Playlists** - Separate by HipHop, Dance, Other
-- 🎵 **Master Genre Playlists** - Exhaustive all-time playlists that partition your entire library by genre
-- 📈 **Streaming History Integration** - Analyze actual listening patterns from Spotify exports
-- 🎯 **Most Played Playlists** - Monthly playlists based on actual listening data
-- 🔍 **Discovery Playlists** - Track newly discovered music
-- 🤖 **Daily Automation** - Local cron job updates playlists automatically
-- 💾 **Local Cache** - Parquet files for fast offline access
-- 🔄 **No Duplicates** - Smart deduplication on every run
-- 📊 **Analysis Notebooks** - 5 demonstrative Jupyter notebooks for views and visualization
-- ✨ **Rich Playlist Descriptions** - Auto-generated descriptions with statistics, genres, and Daylist-style mood tags (Chill, Energetic, Focus, etc.)
-- 🏥 **Health Checks** - Identify empty playlists, duplicates, and organizational issues
-- 🎨 **Playlist Organization** - Smart categorization and organization tools
-- 🛡️ **Production-Grade** - Robust error handling, logging, and monitoring
-- 🎨 **Creative Features** - Theme playlists, time capsules, smart mixing, and insights
-- 📊 **Listening Insights** - Comprehensive reports on your listening habits and patterns
-- 🔗 **Playlist Intelligence** - Similarity detection, merge suggestions, and health scores
+- 📅 **Yearly Archive Playlists** - Finds, Top, and Discovery per year; current year updated each sync
+- 📈 **Streaming History** - Analyze listening patterns from Spotify exports
+- 🤖 **Sync Pipeline** - Sync library → rename → cleanup → consolidate yearly → update current year → descriptions (optional health/insights)
+- 💾 **Local Parquet Cache** - Fast offline access; incremental sync
+- ✨ **Playlist Descriptions** - Auto-updated base descriptions
+- 📊 **Analysis Notebooks** - Standalone notebooks for library, playlists, history, redundancy
+- 🏥 **Health & Insights** - Optional post-sync reports
+- 🛡️ **Production-Grade** - Error handling, backups for destructive ops, logging
 
 ## 📋 Requirements
 
@@ -116,7 +107,7 @@ This will open your browser for Spotify authorization and generate a refresh tok
 
 ```bash
 # Sync your library (first time can take 1-2+ hours for large libraries)
-python src/scripts/automation/sync.py
+python -m src.scripts.automation.sync
 ```
 
 ---
@@ -139,7 +130,7 @@ artists = sf.artists()          # Artists with genres
 wide = sf.library_wide()        # Everything joined
 ```
 
-See [examples/01_quickstart.py](examples/01_quickstart.py) for a complete example.
+See `src/notebooks/` for analysis examples.
 
 ---
 
@@ -147,62 +138,22 @@ See [examples/01_quickstart.py](examples/01_quickstart.py) for a complete exampl
 
 | Notebook | Description |
 |----------|-------------|
-| `02_analyze_library.ipynb` | Visualize your listening habits and library statistics |
-| `03_playlist_analysis.ipynb` | Genre analysis and playlist clustering |
-| `04_analyze_listening_history.ipynb` | Analyze actual listening patterns from Spotify exports |
-| `06_identify_redundant_playlists.ipynb` | Find and consolidate similar playlists |
-| `07_analyze_crashes.ipynb` | Technical log analysis and crash detection |
+| `01_library.ipynb` | Library overview, stats, top artists, popularity, release year |
+| `02_playlists.ipynb` | Playlist breakdown, similarity, and structure |
+| `03_listening_history.ipynb` | Listening patterns from Spotify exports |
+| `04_redundant_playlists.ipynb` | Find and consolidate similar playlists |
 
-Prerequisites: sync your library and (optional) streaming history via CLI or dashboard first. See `src/notebooks/README.md`.
+Prerequisites: sync your library and (optional) streaming history via CLI first. See `src/notebooks/README.md`.
 
-### Playlist Generation
+### Yearly Archive Playlists (v6)
 
-The sync script (CLI or dashboard) creates automated playlists:
+The sync pipeline maintains **yearly archive playlists only**:
 
-**Playlist Types:**
-- 📅 **Finds** - Liked songs: `{Owner}{Prefix}{Mon}{Year}` → e.g., `AJFndsDec25`
-  - Monthly: `AJFndsDec25`, `AJFndsNov25`, etc.
-  - Yearly: `AJFnds24` (consolidated from older months)
-- 🎯 **Top** - Most played: `{Owner}Top{Mon}{Year}` → e.g., `AJTopDec25`
-  - Requires streaming history data
-- 🔍 **Discovery** - New tracks: `{Owner}Dscvr{Mon}{Year}` → e.g., `AJDscvrDec25`
-  - Requires streaming history data
-- 🎸 **Genre-Split Monthly** - `{Genre}{Prefix}{Mon}{Year}` → e.g., `HipHopFindsDec25`, `DanceFindsDec25`
-  - Automatically created for Finds playlists
-- 🎵 **Master Genre Playlists** - `{Owner}am{Genre}` → e.g., `AJamHip-Hop`, `AJamElectronic`, `AJamOther`
-  - **Exhaustive partitioning**: Every liked song is guaranteed to be in at least one playlist
-  - All-time playlists by genre (no threshold filtering - all genres with tracks get playlists)
-  - Tracks without genre classification go into "Other" playlist
-  - Tracks can appear in multiple playlists if they match multiple genres
+- 📅 **Finds** - Liked songs per year, e.g. `AJFinds25` (current year updated each sync)
+- 🎯 **Top** - Most played per year, e.g. `AJTop25` (requires streaming history)
+- 🔍 **Discovery** - New tracks per year, e.g. `AJDscvr25` (requires streaming history)
 
-**Automatic Consolidation:**
-- Last 3 months kept as monthly playlists
-- Older months automatically consolidated into yearly playlists (e.g., `AJFinds24`, `AJTop24`)
-
-### Advanced Genre Classification
-
-The project includes **multi-dimensional genre classification** using creative approaches beyond simple artist genre tags:
-
-**Features:**
-- 🎯 **Collaborative Filtering** - Infers genres from similar tracks (shared artists, same playlists)
-- 🔗 **Playlist Co-occurrence** - Tracks appearing together frequently share genre signals
-- 👥 **Artist Network Analysis** - Uses collaboration patterns to infer genres
-- ⏰ **Temporal Patterns** - Genre evolution over time based on release years
-- 🔀 **Genre Hybrids** - Discovers tracks that blend multiple genres (e.g., "Hip-Hop + Electronic")
-- 📈 **Emerging Genres** - Identifies trending genres in your library over time
-- 🎨 **Dynamic Discovery** - Learns genre patterns from your library and playlists
-
-**Enable Genre Discovery Report:**
-```bash
-# Add to .env file:
-ENABLE_GENRE_DISCOVERY=true
-```
-
-The genre discovery report (generated after sync) shows:
-- Genre clusters in your library (K-means clustering)
-- Hybrid genre combinations with example tracks
-- Emerging genre trends (growth rates over time)
-- Your genre preferences and diversity scores
+Naming uses your configured owner and prefixes (e.g. `{Owner}Finds{Year}`). v6 does not create monthly or genre playlists.
 
 ---
 
@@ -212,19 +163,19 @@ The genre discovery report (generated after sync) shows:
 
 ```bash
 # Full sync + playlist update (default)
-python src/scripts/automation/sync.py
+python -m src.scripts.automation.sync
 
 # Or use the helper script (handles environment variables)
-python src/scripts/automation/runner.py
+python -m src.scripts.automation.runner
 
 # Skip sync, only update playlists (fast, uses existing data)
-python src/scripts/automation/sync.py --skip-sync
+python -m src.scripts.automation.sync --skip-sync
 
 # Sync only, don't update playlists
-python src/scripts/automation/sync.py --sync-only
+python -m src.scripts.automation.sync --sync-only
 
-# Process all months, not just current month
-python src/scripts/automation/sync.py --all-months
+# Run specific steps
+python -m src.scripts.automation.sync --steps sync,update_current_year,descriptions
 ```
 
 ### Scheduled Automation (Cron)
@@ -352,10 +303,10 @@ SPOTIM8/
 │   │   ├── ratelimit.py          # Rate limiting utilities
 │   │   └── utils.py              # Helper functions
 │   ├── notebooks/                # Jupyter notebooks for analysis
-│   │   ├── 02_analyze_library.ipynb  # Visualize listening habits
-│   │   ├── 03_playlist_analysis.ipynb # Genre analysis & clustering
-│   │   ├── 04_analyze_listening_history.ipynb # Analyze listening patterns
-│   │   ├── 06_identify_redundant_playlists.ipynb # Find similar playlists
+│   │   ├── 01_library.ipynb           # Library overview & stats
+│   │   ├── 02_playlists.ipynb        # Playlist analysis & similarity
+│   │   ├── 03_listening_history.ipynb # Listening patterns
+│   │   ├── 04_redundant_playlists.ipynb # Find similar playlists
 │   │   ├── 07_analyze_crashes.ipynb  # Technical log analysis
 │   │   └── notebook_helpers.py       # Shared notebook utilities
 │   └── scripts/                  # Scripts organized by category
@@ -371,7 +322,6 @@ SPOTIM8/
 │       │   ├── merge_multiple_playlists.py # Merge multiple playlists
 │       │   ├── merge_to_new_playlist.py # Merge to new playlist
 │       │   ├── delete_playlists.py   # Delete playlists
-│       │   ├── add_genre_tags_to_descriptions.py # Add genre tags
 │       │   ├── update_all_playlist_descriptions.py # Update descriptions
 │       │   └── playlist_helpers.py   # Shared playlist utilities
 │       ├── common/                # Shared script utilities
@@ -381,13 +331,6 @@ SPOTIM8/
 │       └── utils/                # Utility scripts
 │           ├── get_token.py      # Get refresh token for automation
 │           └── setup.py          # Initial setup helper
-│
-├── dashboard/                    # Streamlit dashboard (optional)
-│   ├── app.py                    # Run: streamlit run dashboard/app.py
-│   └── README.md                 # Dashboard setup
-│
-├── examples/                     # Example code
-│   └── 01_quickstart.py          # Quick start example
 │
 ├── tests/                        # Test suite
 │   ├── test_client.py            # Client tests

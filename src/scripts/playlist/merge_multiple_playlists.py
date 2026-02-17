@@ -230,20 +230,20 @@ def merge_multiple_playlists(sp: spotipy.Spotify, playlist_names: list[str], new
 
 def main():
     parser = argparse.ArgumentParser(description='Merge multiple playlists into one, renaming the oldest to the new name')
-    parser.add_argument('playlists', nargs='*', help='New playlist name first, then playlist names to merge (e.g., "New Name" "Playlist1" "Playlist2" ...)')
+    parser.add_argument('positional_playlists', nargs='*', metavar='playlists', help='New playlist name first, then playlist names to merge (e.g., "New Name" "Playlist1" "Playlist2" ...)')
     parser.add_argument('--new-name', help='Name for the merged playlist (older playlist will be renamed to this)')
-    parser.add_argument('--playlists', nargs='+', help='Playlist names to merge')
+    parser.add_argument('--playlists', nargs='+', dest='named_playlists', help='Playlist names to merge')
     parser.add_argument('--keep-others', action='store_true', help='Keep other playlists after merge (default: delete)')
-    
+
     args = parser.parse_args()
-    
+
     # Determine playlists and new name
-    if args.new_name and args.playlists:
+    if args.new_name and args.named_playlists:
         new_playlist_name = args.new_name
-        playlist_names = args.playlists
-    elif len(args.playlists) >= 2:
-        new_playlist_name = args.playlists[0]
-        playlist_names = args.playlists[1:]
+        playlist_names = args.named_playlists
+    elif args.positional_playlists and len(args.positional_playlists) >= 2:
+        new_playlist_name = args.positional_playlists[0]
+        playlist_names = args.positional_playlists[1:]
     else:
         parser.print_help()
         exit(1)

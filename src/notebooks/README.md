@@ -1,15 +1,15 @@
 # Analysis Notebooks
 
-Demonstrative notebooks for **views, analysis, and visualization** only. Sync and automation are handled by CLI or the dashboard.
+**Standalone analyses.** Each notebook can be run on its own: open it and run all cells. No need to run other notebooks first.
 
-**Prerequisites:** Sync your library first (CLI: `python src/scripts/automation/sync.py` or use the Streamlit dashboard). Data lives in `data/` (under the SPOTIM8 project root).
+- **Data:** Sync your library first (`python -m src.scripts.automation.sync`). Parquet and export data live in `data/` (project root).
+- **Where to run:** Works with kernel started from **project root** or from **src/notebooks**.
 
 | Notebook | Description |
 |----------|-------------|
-| `02_analyze_library.ipynb` | Library overview, stats, top artists/genres, popularity, release year, hidden gems |
-| `03_playlist_analysis.ipynb` | Genre breakdown per playlist, similarity clustering, taste profile |
-| `04_analyze_listening_history.ipynb` | Listening patterns, streaming history, search/discovery |
-| `06_identify_redundant_playlists.ipynb` | Redundant playlists, overlap, consolidation suggestions |
-| `07_analyze_crashes.ipynb` | Playback errors, crash patterns |
+| `01_library.ipynb` | Library overview, stats, top artists, popularity, release year |
+| `02_playlists.ipynb` | Playlist breakdown, similarity, and structure |
+| `03_listening_history.ipynb` | Listening patterns, streaming history, time-of-day |
+| `04_redundant_playlists.ipynb` | Redundant playlists, overlap, consolidation suggestions |
 
-Each notebook: setup path → load data (function) → analysis & visualization (function calls).
+Each notebook: path setup → load data via `notebook_helpers` → analysis and plots.

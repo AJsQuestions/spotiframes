@@ -12,15 +12,6 @@ from pathlib import Path
 from collections import Counter
 from typing import Optional, List, Set, Dict
 
-from ..features.genres import (
-    GENRE_SPLIT_RULES,
-    SPLIT_GENRES,
-    GENRE_RULES,
-    get_split_genre,
-    get_broad_genre,
-)
-
-
 class LibraryAnalyzer:
     """Modular library analyzer with configurable filters.
     
@@ -237,14 +228,11 @@ def build_playlist_genre_profiles(
 
 
 def canonical_core_genre(genres: List[str]) -> Optional[str]:
-    """Map a list of specific genres to a broad category.
+    """Return the first genre from the list, or None if empty.
     
-    Uses exhaustive genre rules from src.genres module.
-    
-    Returns one of: Hip-Hop, R&B/Soul, Electronic, Rock, Pop, Indie,
-    Latin, World, Jazz, Classical, Country/Folk, Metal, Blues, or None.
+    Genre classification support has been removed; this is a simple passthrough.
     """
-    return get_broad_genre(genres)
+    return genres[0] if genres else None
 
 
 class PlaylistSimilarityEngine:

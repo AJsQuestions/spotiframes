@@ -16,7 +16,6 @@ from collections import Counter
 import random
 
 from .sync import DATA_DIR, log, verbose_log, get_existing_playlists, get_user_info, api_call
-from src.features.genres import get_all_broad_genres, SPLIT_GENRES
 
 
 def generate_theme_playlist(
@@ -135,9 +134,8 @@ def generate_theme_playlist(
                     if isinstance(artist_genres, list):
                         track_genres.extend(artist_genres)
             
-            # Check if matches target genres
-            broad_genres = get_all_broad_genres(track_genres)
-            if any(genre in config["target_genres"] for genre in broad_genres):
+            # Check if matches target genres (use raw artist/track genres)
+            if any(genre in config["target_genres"] for genre in track_genres):
                 matching_tracks.append(row)
         
         if matching_tracks:
